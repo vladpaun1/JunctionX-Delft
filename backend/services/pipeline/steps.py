@@ -208,22 +208,23 @@ def analyze_upload(
     print(transcript)
 
     # Step 3: formats json data into sentences: [sentence, start time, end time]
-    n = len(transcript['segments'])
-    timestamps = []
-    texts = []
-    for seg in transcript['segments']:
-        texts.append(seg.get('text', ''))
+    n = len(transcript.get("segments", []))
+    timestamps, texts = [], []
 
-        res = seg.get('result') or []
-        if res:
-            start = res[0].get('start', 0)
-            end   = res[-1].get('end', start)
-        else:
-            # FinalResult or empty word list → no word-level times
-            # keep None so the UI can still show the span & label
-            start = None
-            end   = None
+    for seg in transcript.get("segments", []):
+        txt = (seg.get("text") or "").strip()
+        # Prefer Whisper segment times
+        start = seg.get("start")
+        end   = seg.get("end")
 
+        # Fallback to Vosk word times if present (keeps code engine-agnostic)
+        if (start is None or end is None):
+            res = seg.get("result") or []
+            if res:
+                start = res[0].get("start", start)
+                end   = res[-1].get("end", end)
+
+        texts.append(txt)
         timestamps.append([start, end])
 
     from services.label.model.predictor import TextPredictor
