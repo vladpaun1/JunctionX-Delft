@@ -1,0 +1,13 @@
+# Ignore contents but not placeholder files
+uploads/*
+!uploads/.gitkeep
+
+normalized/*
+!normalized/.gitkeep
+
+transcripts/*
+!transcripts/.gitkeep
+
+labels/*
+!labels/.gitkeep
+
