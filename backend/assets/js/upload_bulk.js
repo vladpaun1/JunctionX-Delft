@@ -1,4 +1,4 @@
-// static/js/upload_bulk.js (full file)
+// static/js/upload_bulk.js
 (function () {
   const form       = document.getElementById('bulk-form');
   const enqueueBtn = document.getElementById('enqueue-btn');
@@ -11,13 +11,47 @@
   const clearBtn   = document.getElementById('clear-files');
   const tbody      = document.getElementById('jobs-body');
 
+
   if (!form) return;
 
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+  
+  // Ensure a toast container exists (create if missing) and CSS is injected
+    let toastArea = document.getElementById('toast-area');
+    if (!toastArea) {
+    toastArea = document.createElement('div');
+    toastArea.id = 'toast-area';
+    toastArea.className = 'toast-area';
+    document.body.appendChild(toastArea);
+    }
 
-  // Get CSRF token
+    // Inject minimal CSS once
+    (function injectToastCSS() {
+    if (document.getElementById('toast-css')) return;
+    const css = `
+    .toast-area {
+        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%);
+        z-index: 4000; display: flex; flex-direction: column; gap: .5rem;
+        width: min(680px, 92vw);
+    }
+    .toast {
+        border-radius: .5rem; padding: .75rem .9rem; box-shadow: 0 6px 18px rgba(0,0,0,.12);
+        display: flex; align-items: center; justify-content: space-between; font-size: .95rem;
+        border: 1px solid transparent;
+    }
+    .toast-danger { background: #f8d7da; color: #842029; border-color: #f1aeb5; }
+    .toast-success { background: #d1e7dd; color: #0f5132; border-color: #a3cfbb; }
+    .toast button { all: unset; cursor: pointer; margin-left: .75rem; opacity: .7; }
+    .toast button:hover { opacity: 1; }`;
+    const style = document.createElement('style');
+    style.id = 'toast-css';
+    style.textContent = css;
+    document.head.appendChild(style);
+    })();
+
+
   const getCookie = (name) => {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
@@ -63,23 +97,63 @@
   };
   const hideError = () => errorEl && errorEl.classList.add('d-none');
 
+  // Toasts
+    const flash = (msg, kind = 'danger', ms = 4000) => {
+    if (!toastArea) return;
+    const el = document.createElement('div');
+    el.className = `toast toast-${kind}`;
+    el.innerHTML = `<span>${escapeHtml(msg)}</span><button aria-label="Dismiss">✕</button>`;
+    const close = () => { el.remove(); };
+    el.querySelector('button').addEventListener('click', close);
+    toastArea.appendChild(el);
+    setTimeout(close, ms);
+    };
+    window.flash = flash; // handy: run flash('hello') in DevTools
+
+
+  const pretty = (obj) => JSON.stringify(obj, null, 2);
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    }
+  };
+
+  // Fetch finalized payload for a job (transcript text + flagged spans)
+  const fetchJobData = async (id) => {
+    const res = await fetch(`/api/jobs/${id}/data/`, { credentials: 'same-origin' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  };
+
   // ---------------------------------------------------------------------------
-  // Table rendering
+  // Table rendering (INFO column removed)
   // ---------------------------------------------------------------------------
 
   const actionHtmlFor = (id, status, error) => {
     if (status === 'SUCCESS') {
       return `
         <div class="d-flex gap-2 justify-content-end">
-          <a class="btn btn-sm btn-outline-primary" href="/job/${id}/">See details</a>
-          <button class="btn btn-sm btn-outline-secondary btn-delete" data-id="${id}">Delete</button>
+          <a class="btn btn-outline-primary btn-sm" href="/job/${id}/">See details</a>
+          <button class="btn btn-outline-secondary btn-sm btn-copy-json" data-id="${id}">Copy JSON</button>
+          <a class="btn btn-outline-dark btn-sm" href="/api/jobs/${id}/export/" download>Export JSON</a>
+          <button class="btn btn-outline-secondary btn-sm btn-delete" data-id="${id}">Delete</button>
         </div>`;
     }
     if (status === 'FAILED') {
       return `
         <div class="d-flex gap-2 justify-content-end">
-          <button class="btn btn-sm btn-outline-danger" disabled>Failed</button>
-          <button class="btn btn-sm btn-outline-secondary btn-delete" data-id="${id}">Delete</button>
+          <button class="btn btn-outline-danger btn-sm" disabled>Failed</button>
+          <button class="btn btn-outline-secondary btn-sm btn-delete" data-id="${id}">Delete</button>
         </div>`;
     }
     return `<span class="spinner-border" role="status" aria-hidden="true"></span>`;
@@ -101,16 +175,13 @@
         ? `<span class="badge bg-danger">FAILED</span>`
         : `<span class="badge bg-secondary">${escapeHtml(statusLabel)}</span>`;
 
-    const infoHtml = error
-      ? `<span class="text-danger small">${escapeHtml(error)}</span>`
-      : '';
+    if (error) flash(error, 'danger');
 
     return `
       <tr data-id="${id}">
         <td>${escapeHtml(filename || '')}</td>
         <td>${size != null ? fmtBytes(size) : ''}</td>
         <td class="status">${statusHtml}</td>
-        <td class="info">${infoHtml}</td>
         <td class="text-end action">${actionHtmlFor(id, statusLabel, error)}</td>
       </tr>
     `;
@@ -148,16 +219,16 @@
 
         const statusCell = tr.querySelector('.status');
         const actionCell = tr.querySelector('.action');
-        const infoCell = tr.querySelector('.info');
 
         if (data.status === 'SUCCESS') {
           statusCell.innerHTML = `<span class="badge bg-success">SUCCESS</span>`;
           actionCell.innerHTML = `
             <div class="d-flex gap-2 justify-content-end">
               <a class="btn btn-sm btn-outline-primary" href="${data.detail_url}">See details</a>
+              <button class="btn btn-sm btn-outline-secondary btn-copy-json" data-id="${id}">Copy JSON</button>
+              <a class="btn btn-sm btn-outline-dark" href="/api/jobs/${id}/export/" download>Export JSON</a>
               <button class="btn btn-sm btn-outline-secondary btn-delete" data-id="${id}">Delete</button>
             </div>`;
-          infoCell.textContent = '';
           clearInterval(iv);
           polling.delete(id);
         } else if (data.status === 'FAILED') {
@@ -167,9 +238,7 @@
               <button class="btn btn-sm btn-outline-danger" disabled>Failed</button>
               <button class="btn btn-sm btn-outline-secondary btn-delete" data-id="${id}">Delete</button>
             </div>`;
-          infoCell.innerHTML = data.error
-            ? `<span class="text-danger small">${escapeHtml(data.error)}</span>`
-            : '';
+          if (data.error) flash(data.error, 'danger');
           clearInterval(iv);
           polling.delete(id);
         } else {
@@ -232,12 +301,13 @@
       (data.jobs || []).forEach((j) => {
         const jobView = {
           id: j.id || crypto.randomUUID(),
-          filename: j.filename,   // original name from server
+          filename: j.filename,
           size: j.size,
           status: j.error ? 'FAILED' : 'PENDING',
           error: j.error || null,
         };
         upsertRow(jobView);
+        if (j.error) flash(`${j.filename || 'File'}: ${j.error}`, 'danger');
         if (!j.error && j.id) startPolling(j.id);
       });
 
@@ -265,7 +335,7 @@
       (data.jobs || []).forEach((j) => {
         const jobView = {
           id: j.id,
-          filename: j.filename,   // original name from API list
+          filename: j.filename,
           size: j.size,
           status: j.status,
           error: j.error || null,
@@ -297,31 +367,55 @@
     stopAllPolling();
   });
 
-  // Delete job (and files) via API
+  // Delete / Copy JSON
   tbody.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.btn-delete');
-    if (!btn) return;
-    const id = btn.getAttribute('data-id');
-    if (!id) return;
+    // DELETE
+    const delBtn = e.target.closest('.btn-delete');
+    if (delBtn) {
+      const id = delBtn.getAttribute('data-id');
+      if (!id) return;
 
-    if (!confirm('Delete this job and its files?')) return;
+      if (!confirm('Delete this job and its files?')) return;
 
-    try {
-      const res = await fetch(`/api/jobs/${id}/`, {
-        method: 'DELETE',
-        credentials: 'same-origin',
-        headers: { 'X-CSRFToken': getCSRF() },
-      });
-      if (res.status === 204) {
-        const tr = tbody.querySelector(`tr[data-id="${id}"]`);
-        tr && tr.remove();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showError(data.detail || `Failed to delete (HTTP ${res.status})`);
+      try {
+        const res = await fetch(`/api/jobs/${id}/`, {
+          method: 'DELETE',
+          credentials: 'same-origin',
+          headers: { 'X-CSRFToken': getCSRF() },
+        });
+        if (res.status === 204) {
+          tbody.querySelector(`tr[data-id="${id}"]`)?.remove();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          showError(data.detail || `Failed to delete (HTTP ${res.status})`);
+        }
+      } catch (err) {
+        console.error('delete error', err);
+        showError(err?.message || 'Delete failed');
       }
-    } catch (err) {
-      console.error('delete error', err);
-      showError(err?.message || 'Delete failed');
+      return;
+    }
+
+    // COPY JSON
+    const copyBtn = e.target.closest('.btn-copy-json');
+    if (copyBtn) {
+      const id = copyBtn.getAttribute('data-id');
+      if (!id) return;
+      copyBtn.disabled = true;
+      const old = copyBtn.textContent;
+      try {
+        const payload = await fetchJobData(id);
+        const ok = await copyToClipboard(pretty(payload));
+        copyBtn.textContent = ok ? 'Copied!' : 'Copy failed';
+        setTimeout(() => (copyBtn.textContent = old), 1200);
+      } catch (err) {
+        console.error('copy error', err);
+        copyBtn.textContent = 'Copy failed';
+        setTimeout(() => (copyBtn.textContent = old), 1200);
+      } finally {
+        copyBtn.disabled = false;
+      }
+      return;
     }
   });
 })();

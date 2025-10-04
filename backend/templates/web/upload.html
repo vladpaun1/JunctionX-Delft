@@ -5,22 +5,6 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/upload.css' %}">
-<style>
-  #overlay{display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:1050}
-  #overlay .box{display:flex;gap:.75rem;align-items:center;color:#fff}
-  td .spinner-border{width:1rem;height:1rem}
-  .flagged{cursor:pointer;border-radius:.15rem;padding:0 .15rem;border-bottom:2px solid transparent}
-  .lbl-bad{background:rgba(255,193,7,.25);border-bottom-color:#ffc107}
-  .lbl-hate{background:rgba(220,53,69,.25);border-bottom-color:#dc3545}
-  .lbl-terror{background:rgba(111,66,193,.25);border-bottom-color:#6f42c1}
-</style>
-
-<div id="overlay" aria-hidden="true">
-  <div class="box">
-    <div class="spinner-border" role="status" aria-hidden="true"></div>
-    <div class="fw-semibold">Uploading…</div>
-  </div>
-</div>
 
 <div class="row">
   <div class="col-lg-10 mx-auto">
@@ -47,19 +31,21 @@
 
         <div class="table-responsive">
           <table class="table align-middle" id="jobs-table">
+    
             <thead>
               <tr>
-                <th style="width:32%">File</th>
-                <th style="width:12%">Size</th>
-                <th style="width:16%">Status</th>
-                <th style="width:28%">Info</th>
-                <th style="width:12%" class="text-end">Action</th>
+                <th>File</th>
+                <th>Size</th>
+                <th>Status</th>
+                <th class="text-end">Action</th>
               </tr>
             </thead>
-            <tbody id="jobs-body">
-            </tbody>
+            <tbody id="jobs-body"></tbody>
           </table>
         </div>
+
+
+        <div id="toast-area" class="toast-area"></div>
 
       </div>
     </div>
