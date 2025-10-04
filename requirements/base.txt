@@ -2,3 +2,4 @@ Django>=5.0,<6.0
 djangorestframework>=3.15,<4.0
 vosk>=0.3.44
 whitenoise>=6.7
+python-dotenv>=1.1.1
