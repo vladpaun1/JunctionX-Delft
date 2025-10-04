@@ -17,6 +17,8 @@ import wave
 from pathlib import Path
 from typing import Any, Dict
 
+from profanity_check import predict, predict_prob
+
 from django.conf import settings
 
 # ---------------------------------------------------------------------
@@ -141,6 +143,14 @@ def analyze_upload(
         transcript_path.write_text(json.dumps(transcript, indent=2))
     else:
         transcript = transcribe_audio(norm_path, model_path, transcript_path)
+
+    # Step 3: detect swear words
+    sentences = [segment['text'] for segment in transcript['segments']]
+    sentences = ["fuck you", "hello", "one two one", "shit"]
+    probs = predict(sentences)
+    
+    for i in range(len(sentences)):
+        if probs[i] >= 0.75: print(sentences[i])
 
     return {
         "upload_path": str(upload_path),
