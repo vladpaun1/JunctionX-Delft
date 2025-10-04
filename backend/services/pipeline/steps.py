@@ -124,7 +124,7 @@ def transcribe_audio(
 # Orchestration
 # ---------------------------------------------------------------------
 def analyze_upload(
-    upload_path: Path, model_path: Path | None = None, use_mock: bool = True
+    upload_path: Path, model_path: Path | None = None, use_mock: bool = False
 ) -> Dict[str, Any]:
     """
     Orchestrate: normalize → (mock or real ASR) → return transcript dict.
