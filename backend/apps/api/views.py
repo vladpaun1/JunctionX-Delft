@@ -1,3 +1,5 @@
+# backend/apps/web/api/views.py (full file for easy paste)
+
 from pathlib import Path
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
@@ -23,8 +25,6 @@ class AnalyzeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        use_mock = request.data.get("use_mock", "true").lower() in ("1", "true", "yes", "y")
-
         # 1) Pre-save validation & save
         try:
             src = save_upload(f)
@@ -40,21 +40,19 @@ class AnalyzeView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        # 2) Analyze (convert -> ASR)
+        # 2) Analyze (convert -> ASR -> labels)
         try:
             result = analyze_upload(
                 upload_path=Path(src),
                 model_path=None,
-                use_mock=use_mock,
+                use_mock=False,  # we don't use the mock anymore
             )
         except ValueError as e:
-            # From convert_file() when ffmpeg can’t process (corrupt/unsupported media)
             return Response(
                 {"detail": str(e), "code": "conversion_failed"},
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
-        except FileNotFoundError as e:
-            # Likely missing ASR model or resource
+        except FileNotFoundError:
             return Response(
                 {"detail": "ASR resources not available.", "code": "asr_unavailable"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -69,9 +67,11 @@ class AnalyzeView(APIView):
         p = Path(result["upload_path"])
         src_size = p.stat().st_size
         wav_size = Path(result["normalized_path"]).stat().st_size
-        transcript = result["transcript"]
+
+        transcript = result.get("transcript") or {}
         length_sec = transcript.get("duration_sec", 0)
 
+        # relative media paths
         media_idx = str(result["upload_path"]).find("/media/")
         upload_rel = result["upload_path"][media_idx:] if media_idx >= 0 else result["upload_path"]
 
@@ -83,11 +83,15 @@ class AnalyzeView(APIView):
                 "ok": True,
                 "upload_rel": upload_rel,
                 "normalized_rel": normalized_rel,
-                "transcript_path": result["transcript_path"],
+
+                # sizes + duration (kept because they’re useful in UI)
                 "src_size": src_size,
                 "wav_size": wav_size,
                 "length_sec": round(length_sec, 3),
-                "transcript": transcript,
+
+                # NEW: what the UI actually needs
+                "full_text": result.get("full_text", ""),
+                "labels": result.get("labels", []),  # list of [label, text, start, end]
             },
             status=status.HTTP_200_OK,
         )

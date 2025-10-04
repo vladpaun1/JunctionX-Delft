@@ -29,7 +29,7 @@ MEDIA_ROOT = Path(settings.MEDIA_ROOT)
 UPLOAD_DIR = MEDIA_ROOT / "uploads"
 NORMALIZED_DIR = MEDIA_ROOT / "normalized"
 TRANSCRIPTS_DIR = MEDIA_ROOT / "transcripts"
-ARTIFACTS = Path("backend/services/label/model/artifacts")
+ARTIFACTS = settings.LABEL_MODEL_DIR
 
 
 # ---------------------------------------------------------------------
@@ -188,35 +188,39 @@ def analyze_upload(
     n = len(transcript['segments'])
     timestamps = []
     texts = []
-    for i,seg in enumerate(transcript['segments']):
-        timestamps.append([seg['result'][0]['start'], seg['result'][-1]['end']])
-        texts.append(seg['text'])
+    for seg in transcript['segments']:
+        texts.append(seg.get('text', ''))
+
+        res = seg.get('result') or []
+        if res:
+            start = res[0].get('start', 0)
+            end   = res[-1].get('end', start)
+        else:
+            # FinalResult or empty word list → no word-level times
+            # keep None so the UI can still show the span & label
+            start = None
+            end   = None
+
+        timestamps.append([start, end])
 
     from services.label.model.predictor import TextPredictor
-
     TextPredictor.load(ARTIFACTS)
 
     labels = TextPredictor.predict(texts)
     result = []
     for i in range(n):
-        result.append([labels[i], texts[i] , timestamps[i][0], timestamps[i][1]])
+        result.append([labels[i], texts[i], timestamps[i][0], timestamps[i][1]])
 
     print(result)
 
-    #test
-    
-
-    # probs = predict(s[0] for s in sentences)
-    #
-    # timestamps = []
-    # 
-    # for i in range(len(sentences)):
-    #     if probs[i] >= 0.75:
-    #         timestamps.append(sentences[i][0])
+    full_text = " ".join(texts)
 
     return {
         "upload_path": str(upload_path),
         "normalized_path": str(norm_path),
         "transcript_path": str(transcript_path),
         "transcript": transcript,
+        # NEW:
+        "full_text": full_text,
+        "labels": result,  # list of [label, text, start, end]
     }

@@ -141,3 +141,4 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Project-specific constants
 # ---------------------------------------------------------------------
 VOSK_MODEL_DIR = os.getenv("VOSK_MODEL_DIR", None)
+LABEL_MODEL_DIR = BASE_DIR / "services" / "label" / "model" / "artifacts"
