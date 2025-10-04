@@ -145,21 +145,43 @@ def mock_vosk(wav_path: Path) -> Dict[str, Any]:
     }
 
 
-def transcribe_audio(
-    input_file: Path, model_path: Path, transcript_out: Path
-) -> Dict[str, Any]:
+# def transcribe_audio(
+#     input_file: Path, model_path: Path, transcript_out: Path
+# ) -> Dict[str, Any]:
+#     """
+#     Run Vosk transcription and persist transcript JSON.
+#     """
+#     from services.asr import \
+#         VoskASREngine  # lazy import so project can start without model
+#     asr = VoskASREngine(model_path)
+#     transcript = asr.transcribe(str(input_file))
+#
+#     transcript_out.parent.mkdir(parents=True, exist_ok=True)
+#     transcript_out.write_text(json.dumps(transcript, indent=2))
+#     return transcript
+
+def transcribe_audio(input_file: Path, model_path: Path, transcript_out: Path) -> dict:
     """
-    Run Vosk transcription and persist transcript JSON.
+    Run Whisper transcription (model_path may be a model name or local path).
     """
-    from services.asr import \
-        VoskASREngine  # lazy import so project can start without model
-    asr = VoskASREngine(model_path)
-    transcript = asr.transcribe(str(input_file))
+    from services.asr import WhisperASREngine
+
+    # You can pass a model name ("tiny", "small", "medium") or a local path
+    engine = WhisperASREngine(
+        # model_name_or_path=str(model_path) if model_path else "small",
+        model_name_or_path="small",
+        device=None,          # auto: "cuda" if available else "cpu"
+        compute_type=None,    # auto: int8 / int8_float16
+        language=None,        # auto-detect; set "en" to lock English
+        beam_size=1,          # greedy = fastest
+        vad_filter=True,
+        enable_word_timestamps=False,  # set True if you need per-word timings
+    )
+    transcript = engine.transcribe(str(input_file))
 
     transcript_out.parent.mkdir(parents=True, exist_ok=True)
     transcript_out.write_text(json.dumps(transcript, indent=2))
     return transcript
-
 
 # ---------------------------------------------------------------------
 # Orchestration
@@ -182,6 +204,8 @@ def analyze_upload(
         transcript_path.write_text(json.dumps(transcript, indent=2))
     else:
         transcript = transcribe_audio(norm_path, model_path, transcript_path)
+
+    print(transcript)
 
     # Step 3: formats json data into sentences: [sentence, start time, end time]
     n = len(transcript['segments'])
