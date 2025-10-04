@@ -1,0 +1,62 @@
+{% extends 'layouts/base.html' %}
+{% load static %}
+
+{% block title %}Job {{ job.id }}{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-10 mx-auto">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h1 class="h5">Job {{ job.id }}</h1>
+        <p class="text-muted mb-1">Status: <span class="badge bg-{{ ok|yesno:'success,danger' }}">{{ job.status }}</span></p>
+        {% if job.error %}
+          <div class="alert alert-danger mt-2">{{ job.error }}</div>
+        {% endif %}
+
+        <dl class="row small mt-3">
+          <dt class="col-sm-3">Upload</dt><dd class="col-sm-9">{{ job.upload_rel|default:job.upload_path }}</dd>
+          <dt class="col-sm-3">Normalized WAV</dt><dd class="col-sm-9">{{ job.normalized_rel|default:job.normalized_path }}</dd>
+          <dt class="col-sm-3">Input size</dt><dd class="col-sm-9">{{ job.src_size|default:"" }} bytes</dd>
+          <dt class="col-sm-3">WAV size</dt><dd class="col-sm-9">{{ job.wav_size|default:"" }} bytes</dd>
+          <dt class="col-sm-3">Duration</dt><dd class="col-sm-9">{{ job.duration_sec|default:"" }} s</dd>
+        </dl>
+
+        {% if ok %}
+          <h6 class="mt-3">Extracted text</h6>
+          <div class="small text-muted mb-2">
+            <span class="flagged lbl-bad">Bad language</span>
+            <span class="flagged lbl-hate ms-2">Hate speech</span>
+            <span class="flagged lbl-terror ms-2">Terrorism support</span>
+          </div>
+          <div class="border rounded p-3 bg-body-tertiary" style="white-space:pre-wrap;">
+            {% if job.labels %}
+              {% for it in job.labels %}
+                {% with label=it.0 text=it.1 %}
+                  {% if label|lower == 'skip' %}
+                    {{ text }}
+                  {% else %}
+                    {% if label|lower == 'bad language' %}
+                      <mark class="lbl-bad flagged" title="{{ label }}">{{ text }}</mark>
+                    {% elif label|lower == 'hate speech' %}
+                      <mark class="lbl-hate flagged" title="{{ label }}">{{ text }}</mark>
+                    {% elif label|lower == 'terrorism support' %}
+                      <mark class="lbl-terror flagged" title="{{ label }}">{{ text }}</mark>
+                    {% else %}
+                      <mark class="flagged" title="{{ label }}">{{ text }}</mark>
+                    {% endif %}
+                  {% endif %}
+                {% endwith %}{% if not forloop.last %} {% endif %}
+              {% endfor %}
+            {% else %}
+              {{ job.full_text|default:"" }}
+            {% endif %}
+          </div>
+        {% endif %}
+
+        <a class="btn btn-outline-secondary mt-3" href="/">← Back</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
