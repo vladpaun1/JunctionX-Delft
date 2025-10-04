@@ -12,7 +12,6 @@ class VoskASREngine:
         If model_path is None, use the default small English model bundled with Vosk.
         """
         if model_path is None:
-            # Use the built-in small English model
             try:
                 self.model = Model(lang="en-us")
             except Exception as e:
@@ -36,22 +35,50 @@ class VoskASREngine:
             ):
                 raise ValueError("Input WAV must be mono PCM16 with 8k/16k sample rate")
 
-            rec = KaldiRecognizer(self.model, wf.getframerate())
+            sample_rate = wf.getframerate()
+            frames = wf.getnframes()
+            duration_from_header = frames / float(sample_rate) if sample_rate else 0.0
+
+            rec = KaldiRecognizer(self.model, sample_rate)
             rec.SetWords(True)
 
-            results = []
+            segments = []
             while True:
                 data = wf.readframes(4000)
                 if len(data) == 0:
                     break
                 if rec.AcceptWaveform(data):
-                    results.append(json.loads(rec.Result()))
+                    segments.append(json.loads(rec.Result()))
 
-            results.append(json.loads(rec.FinalResult()))
+            segments.append(json.loads(rec.FinalResult()))
 
-        # Combine text + segments
+        # Build overall text
+        overall_text = " ".join(s.get("text", "") for s in segments).strip()
+
+        # Derive duration from last word 'end' (if available) and fall back to header
+        last_end = 0.0
+        for s in segments:
+            for w in s.get("result", []) or []:
+                try:
+                    e = float(w.get("end", 0) or 0)
+                    if e > last_end:
+                        last_end = e
+                except (TypeError, ValueError):
+                    pass
+
+        duration_sec = max(last_end, duration_from_header)
+
+        # Optional: flattened words array (handy for UI/metrics)
+        words = []
+        for s in segments:
+            for w in s.get("result", []) or []:
+                words.append(w)
+
         transcript = {
-            "text": " ".join(r.get("text", "") for r in results).strip(),
-            "segments": results,
+            "text": overall_text,
+            "segments": segments,           # raw Vosk result chunks
+            "words": words,                 # flattened words with start/end/conf
+            "duration_sec": round(float(duration_sec), 3),
+            "sample_rate": sample_rate,
         }
         return transcript
