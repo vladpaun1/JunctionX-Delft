@@ -186,20 +186,20 @@ def analyze_upload(
 
     # Step 3: formats json data into sentences: [sentence, start time, end time]
     n = len(transcript['segments'])
-    timestamps = np.array((n, 2))
-    texts = np.array((n,))
+    timestamps = []
+    texts = []
     for i,seg in enumerate(transcript['segments']):
-        timestamps[i] = [seg['result'][0]['start'], seg['result'][-1]['end']]
-        texts[i] = seg['text']
+        timestamps.append([seg['result'][0]['start'], seg['result'][-1]['end']])
+        texts.append(seg['text'])
 
     from services.label.model.predictor import TextPredictor
 
     TextPredictor.load(ARTIFACTS)
 
     labels = TextPredictor.predict(texts)
-    result = np.array((n, 4))
+    result = []
     for i in range(n):
-        result[i] = [labels[i], texts[i] , timestamps[i][0], timestamps[i][1]]
+        result.append([labels[i], texts[i] , timestamps[i][0], timestamps[i][1]])
 
     print(result)
 
