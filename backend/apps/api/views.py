@@ -72,11 +72,17 @@ class AnalyzeView(APIView):
         transcript = result["transcript"]
         length_sec = transcript.get("duration_sec", 0)
 
+        media_idx = str(result["upload_path"]).find("/media/")
+        upload_rel = result["upload_path"][media_idx:] if media_idx >= 0 else result["upload_path"]
+
+        media_idx2 = str(result["normalized_path"]).find("/media/")
+        normalized_rel = result["normalized_path"][media_idx2:] if media_idx2 >= 0 else result["normalized_path"]
+
         return Response(
             {
                 "ok": True,
-                "upload_path": result["upload_path"],
-                "normalized_path": result["normalized_path"],
+                "upload_rel": upload_rel,
+                "normalized_rel": normalized_rel,
                 "transcript_path": result["transcript_path"],
                 "src_size": src_size,
                 "wav_size": wav_size,

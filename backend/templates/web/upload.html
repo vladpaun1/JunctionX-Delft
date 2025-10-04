@@ -22,8 +22,9 @@
 
         <form id="analyze-form" class="mb-3" enctype="multipart/form-data" novalidate>
           {# {% csrf_token %} — optional; cookie is set by ensure_csrf_cookie #}
-          <div class="mb-3">
+          <div class="mb-3 d-flex gap-2">
             <input class="form-control" type="file" id="file" name="file" accept="audio/*,video/*" required>
+            <button class="btn btn-outline-secondary" type="button" id="clear-file">Clear</button>
           </div>
 
           <div class="form-check form-switch mb-3">
