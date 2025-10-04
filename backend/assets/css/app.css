@@ -1,2 +1,58 @@
 /* Small visual tweaks */
-pre { font-size: .9rem; }
+pre { font-size: .9rem; 
+     background: rgba(221, 213, 106, 0.884); 
+     padding: .5rem; 
+     border-radius: .25rem; 
+     overflow-x: auto; 
+     box-shadow: inset 0 0 5px rgba(0,0,0,.1);
+}
+body{
+    background-image: url('../res/bg.jpg');
+    background-size: cover;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-position: center;
+
+}
+.custom-navbar {
+    background-color: black !important;
+    border-bottom: none !important;
+}
+
+.custom-navbar .navbar-brand,
+.custom-navbar .nav-link {
+    color: rgb(237, 191, 130) !important;
+    font-weight: 500;
+}
+
+.custom-navbar .nav-link:hover {
+    color: rgb(255, 220, 160) !important; /* slightly lighter on hover */
+}
+
+.navbar-toggler {
+    border-color: rgb(237, 191, 130) !important;
+}
+.custom-analyze-btn {
+    background-color: antiquewhite !important;
+    color: black !important;
+    border: none !important;
+}
+.custom-analyze-btn2 {
+    background-color: #f2e5c2 !important;
+    color: black !important;
+    border: none !important;
+}
+
+.custom-analyze-btn:hover {
+    background-color: #f2e5c2 !important; /* slightly darker on hover */
+    color: black !important;
+}
+a {
+    color: #C8A2C8; /* lilac */
+    text-decoration: none; /* optional: removes underline */
+}
+
+a:hover {
+    color: #B084B8; /* slightly darker lilac on hover */
+    text-decoration: underline; /* optional hover underline */
+}

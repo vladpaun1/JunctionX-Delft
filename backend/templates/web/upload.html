@@ -6,8 +6,9 @@
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/upload.css' %}">
 
+
 <div class="row">
-  <div class="col-lg-10 mx-auto">
+  <div class="col-lg-8 mx-auto">
     <div class="card shadow-sm">
       <div class="card-body">
         <h1 class="h4 mb-3">Bulk upload</h1>
@@ -19,12 +20,12 @@
             <button class="btn btn-outline-secondary" type="button" id="clear-files">Clear</button>
           </div>
 
-        <button class="btn btn-primary" type="button" id="enqueue-btn">
-          <span class="btn-text">Analyze selected</span>
+        <button class="btn custom-analyze-btn2" type="button" id="enqueue-btn">
+          <span class="btn custom-analyze-btn">Analyze selected</span>
           <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="btn-spinner"></span>
         </button>
         {% comment %} Optional link to reset session in dev {% endcomment %}
-        <a class="btn btn-link" href="{% url 'reset_session' %}">Reset session</a>
+        <a href="{% url 'reset_session' %}">Reset session</a>
         </form>
 
         <div id="error" class="alert alert-danger d-none mt-3" role="alert"></div>
