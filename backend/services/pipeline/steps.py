@@ -17,6 +17,8 @@ import wave
 from pathlib import Path
 from typing import Any, Dict
 
+from profanity_check import predict, predict_prob
+
 from django.conf import settings
 
 # ---------------------------------------------------------------------
@@ -179,6 +181,22 @@ def analyze_upload(
         transcript_path.write_text(json.dumps(transcript, indent=2))
     else:
         transcript = transcribe_audio(norm_path, model_path, transcript_path)
+
+    # Step 3: formats json data into sentences: [sentence, start time, end time]
+    sentences = []
+    for seg in transcript['segments']:
+        sentences.append([seg['text'], seg['result'][0]['start'], seg['result'][-1]['end']])
+
+    probs = predict(s[0] for s in sentences)
+
+    timestamps = []
+    
+    for i in range(len(sentences)):
+        if probs[i] >= 0.75:
+            timestamps.append(sentences[i][0])
+
+    print(sentences)
+    print(timestamps)
 
     return {
         "upload_path": str(upload_path),
