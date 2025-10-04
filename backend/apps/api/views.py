@@ -13,6 +13,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+
 from services.pipeline.steps import analyze_upload, save_upload
 from apps.web.models import UploadJob  # adjust if your app label/module differs
 
@@ -96,9 +97,12 @@ def _run_job_in_bg(job_id: UUID):
         job.finished_at = timezone.now()
         job.save()
 
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         job.status = UploadJob.Status.FAILED
-        job.error = "ASR resources not available."
+        err = "ASR resources not available."
+        if getattr(settings, "DEBUG", False):
+            err += f" (model_path={VOSK_MODEL_DIR!r}; err={e})"
+        job.error = err
         job.finished_at = timezone.now()
         job.save(update_fields=["status", "error", "finished_at"])
 
@@ -156,11 +160,15 @@ class AnalyzeView(APIView):
                 {"detail": str(e), "code": "conversion_failed"},
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
-        except FileNotFoundError:
-            return Response(
-                {"detail": "ASR resources not available.", "code": "asr_unavailable"},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
+
+
+        except FileNotFoundError as e:
+            detail = "ASR resources not available."
+            if getattr(settings, "DEBUG", False):
+                detail += f" (model_path={VOSK_MODEL_DIR!r}; err={e})"
+            return Response({"detail": detail, "code": "asr_unavailable"},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
         except Exception as e:
             return Response(
                 {"detail": f"Analysis failed: {e}", "code": "analysis_error"},
@@ -304,3 +312,25 @@ class JobDetailView(APIView):
             "detail_url": f"/job/{job.id}/",
         }
         return Response(payload, status=status.HTTP_200_OK)
+
+
+# backend/apps/web/api/views.py (add)
+class ASRHealthView(APIView):
+    def get(self, request):
+        from django.conf import settings
+        from pathlib import Path
+
+        p = settings.VOSK_MODEL_DIR
+        exists = bool(p) and Path(p).exists()
+        listing = []
+        try:
+            if exists:
+                listing = sorted([x.name for x in Path(p).iterdir()][:10])  # first 10 entries
+        except Exception as e:
+            listing = [f"<ls error: {e}>"]
+
+        return Response({
+            "vosk_model_dir": p,
+            "exists": exists,
+            "sample_listing": listing,
+        }, status=200 if exists else 503)
