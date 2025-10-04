@@ -21,7 +21,7 @@
         <p class="text-muted">Drop a file or choose one. By default we use the mock recognizer.</p>
 
         <form id="analyze-form" class="mb-3" enctype="multipart/form-data" novalidate>
-          {% csrf_token %}
+          {# {% csrf_token %} — optional; cookie is set by ensure_csrf_cookie #}
           <div class="mb-3">
             <input class="form-control" type="file" id="file" name="file" accept="audio/*,video/*" required>
           </div>
