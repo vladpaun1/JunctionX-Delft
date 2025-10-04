@@ -1,6 +1,3 @@
-// Needs window.getCSRFToken() from static/js/csrf.js,
-// which is already loaded in base/_foot.html.
-
 (function () {
   const form       = document.getElementById('analyze-form');
   const btn        = document.getElementById('analyze-btn');
@@ -19,13 +16,34 @@
   const rLen       = document.getElementById('r-len');
   const rJson      = document.getElementById('r-json');
 
-  if (!form) return; // not on this page
+  // NEW
+  const fileInput  = document.getElementById('file');
+  const clearBtn   = document.getElementById('clear-file');
+
+  if (!form) return;
 
   let lastJSON = null;
 
   form.addEventListener('submit', (e) => e.preventDefault());
 
   const pretty = (o) => { try { return JSON.stringify(o, null, 2); } catch { return String(o); } };
+
+  // NEW: human-readable sizes
+  const fmtBytes = (n) => {
+    if (typeof n !== 'number' || !isFinite(n)) return '';
+    const units = ['bytes', 'KB', 'MB', 'GB', 'TB'];
+    let u = 0, v = n;
+    while (v >= 1024 && u < units.length - 1) { v /= 1024; u++; }
+    return `${v.toFixed(v < 10 && u > 0 ? 2 : 1)} ${units[u]}`;
+  };
+
+  // NEW: make path relative to /media if possible
+  const toRelMedia = (p) => {
+    if (!p) return '';
+    const i = p.indexOf('/media/');
+    return (i >= 0) ? p.slice(i) : p;
+  };
+
   const setLoading = (v) => {
     btn.disabled = v;
     btnSpin.classList.toggle('d-none', !v);
@@ -38,10 +56,14 @@
     resultEl.classList.add('d-none');
   };
   const showResult = (data) => {
-    rUpload.textContent  = data.upload_path ?? '';
-    rWav.textContent     = data.normalized_path ?? '';
-    rSrcSize.textContent = (data.src_size != null) ? `${data.src_size} bytes` : '';
-    rWavSize.textContent = (data.wav_size != null) ? `${data.wav_size} bytes` : '';
+    // Prefer backend-provided relative fields if present
+    const up = data.upload_rel || toRelMedia(data.upload_path);
+    const nw = data.normalized_rel || toRelMedia(data.normalized_path);
+
+    rUpload.textContent  = up;
+    rWav.textContent     = nw;
+    rSrcSize.textContent = (data.src_size != null) ? fmtBytes(data.src_size) : '';
+    rWavSize.textContent = (data.wav_size != null) ? fmtBytes(data.wav_size) : '';
     rLen.textContent     = (data.length_sec != null) ? `${data.length_sec} s` : '';
     rJson.textContent    = pretty(data.transcript ?? data);
     errorEl.classList.add('d-none');
@@ -49,7 +71,7 @@
   };
 
   async function analyze() {
-    const file = document.getElementById('file').files[0];
+    const file = fileInput.files[0];
     const use_mock = document.getElementById('use_mock').checked;
     if (!file) { showError('Please choose an audio or video file.'); return; }
 
@@ -105,5 +127,13 @@
     const a = document.createElement('a');
     a.href = url; a.download = 'analyze_response.json';
     document.body.appendChild(a); a.click(); URL.revokeObjectURL(url); a.remove();
+  });
+
+  // NEW: Clear button handler
+  clearBtn.addEventListener('click', () => {
+    fileInput.value = '';
+    lastJSON = null;
+    errorEl.classList.add('d-none');
+    resultEl.classList.add('d-none');
   });
 })();
