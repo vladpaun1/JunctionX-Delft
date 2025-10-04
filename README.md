@@ -5,16 +5,44 @@
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements/dev.txt
-cd backend
-python manage.py migrate
-python manage.py runserver 0.0.0.0:8000
+python backend/manage.py migrate
+python backend/qmanage.py runserver 0.0.0.0:8000
 ```
 Test: ```GET /api/ping/``` → ```{"status":"ok","service":"backend"}```
 
 
 
 
-
+# Repo layout
+```bash
+extreme-speech-filter/
+├─ backend/
+│  ├─ manage.py
+│  ├─ core/
+│  ├─ apps/
+│  │  └─ api/                  # API endpoints (/api/analyze, /api/ping, etc.)
+│  ├─ services/
+│  │  ├─ asr/                  # ASR engines (Vosk now; others later)
+│  │  │  ├─ __init__.py
+│  │  │  └─ vosk_engine.py     # thin wrapper around Vosk
+│  │  └─ pipeline/             # simple orchestrators/helpers
+│  │     ├─ __init__.py
+│  │     └─ steps.py           # convert → transcribe → label → export
+│  ├─ media/
+│  │  ├─ uploads/              # raw user uploads (kept for traceability)
+│  │  ├─ normalized/           # WAV mono 16-bit files fed to ASR
+│  │  ├─ transcripts/          # JSON transcripts
+│  │  └─ labels/               # JSON labels from the next stage
+│  ├─ templates/ (optional)
+│  └─ static/ (optional)
+├─ data/
+│  └─ models/
+│     └─ vosk/
+│        └─ model/             # unpacked model dir (gitignored)
+├─ scripts/
+│  └─ download_vosk_model.py
+└─ requirements/
+```
 
 
 
