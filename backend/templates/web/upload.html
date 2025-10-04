@@ -5,25 +5,10 @@
 
 {% block content %}
 <link rel="stylesheet" href="{% static 'css/upload.css' %}">
-<style>
-  #overlay{display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:rgba(0,0,0,.35);z-index:1050}
-  #overlay .box{display:flex;gap:.75rem;align-items:center;color:#fff}
-  td .spinner-border{width:1rem;height:1rem}
-  .flagged{cursor:pointer;border-radius:.15rem;padding:0 .15rem;border-bottom:2px solid transparent}
-  .lbl-bad{background:rgba(255,193,7,.25);border-bottom-color:#ffc107}
-  .lbl-hate{background:rgba(220,53,69,.25);border-bottom-color:#dc3545}
-  .lbl-terror{background:rgba(111,66,193,.25);border-bottom-color:#6f42c1}
-</style>
 
-<div id="overlay" aria-hidden="true">
-  <div class="box">
-    <div class="spinner-border" role="status" aria-hidden="true"></div>
-    <div class="fw-semibold">Uploading…</div>
-  </div>
-</div>
 
 <div class="row">
-  <div class="col-lg-10 mx-auto">
+  <div class="col-lg-8 mx-auto">
     <div class="card shadow-sm">
       <div class="card-body">
         <h1 class="h4 mb-3">Bulk upload</h1>
@@ -35,12 +20,12 @@
             <button class="btn btn-outline-secondary" type="button" id="clear-files">Clear</button>
           </div>
 
-        <button class="btn btn-primary" type="button" id="enqueue-btn">
-          <span class="btn-text">Analyze selected</span>
+        <button class="btn custom-analyze-btn2" type="button" id="enqueue-btn">
+          <span class="btn custom-analyze-btn">Analyze selected</span>
           <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="btn-spinner"></span>
         </button>
         {% comment %} Optional link to reset session in dev {% endcomment %}
-        <a class="btn btn-link" href="{% url 'reset_session' %}">Reset session</a>
+        <a href="{% url 'reset_session' %}">Reset session</a>
         </form>
 
         <div id="error" class="alert alert-danger d-none mt-3" role="alert"></div>
