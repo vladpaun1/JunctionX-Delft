@@ -185,18 +185,24 @@ def analyze_upload(
         transcript = transcribe_audio(norm_path, model_path, transcript_path)
 
     # Step 3: formats json data into sentences: [sentence, start time, end time]
-    sentences = []
-    texts = []
-    for i, seg in enumerate(transcript['segments']):
-        sentences.append([seg['text'], seg['result'][0]['start'], seg['result'][-1]['end']])
-        texts.append(seg['text'])
-    sentences = np.array(sentences, dtype=object)
+    n = len(transcript['segments'])
+    timestamps = np.array((n, 2))
+    texts = np.array((n,))
+    for i,seg in enumerate(transcript['segments']):
+        timestamps[i] = [seg['result'][0]['start'], seg['result'][-1]['end']]
+        texts[i] = seg['text']
 
     from services.label.model.predictor import TextPredictor
 
     TextPredictor.load(ARTIFACTS)
 
     labels = TextPredictor.predict(texts)
+    result = np.array((n, 4))
+    for i in range(n):
+        result[i] = [labels[i], texts[i] , timestamps[i][0], timestamps[i][1]]
+
+    print(result)
+    
 
     # probs = predict(s[0] for s in sentences)
     #
