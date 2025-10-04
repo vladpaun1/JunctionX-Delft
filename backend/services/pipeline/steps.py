@@ -144,13 +144,21 @@ def analyze_upload(
     else:
         transcript = transcribe_audio(norm_path, model_path, transcript_path)
 
-    # Step 3: detect swear words
-    sentences = [segment['text'] for segment in transcript['segments']]
-    sentences = ["fuck you", "hello", "one two one", "shit"]
-    probs = predict(sentences)
+    # Step 3: formats json data into sentences: [sentence, start time, end time]
+    sentences = []
+    for seg in transcript['segments']:
+        sentences.append([seg['text'], seg['result'][0]['start'], seg['result'][-1]['end']])
+
+    probs = predict(s[0] for s in sentences)
+
+    timestamps = []
     
     for i in range(len(sentences)):
-        if probs[i] >= 0.75: print(sentences[i])
+        if probs[i] >= 0.75:
+            timestamps.append(sentences[i][0])
+
+    print(sentences)
+    print(timestamps)
 
     return {
         "upload_path": str(upload_path),
