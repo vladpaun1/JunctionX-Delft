@@ -4,3 +4,5 @@ vosk>=0.3.44
 whitenoise>=6.7
 python-dotenv>=1.1.1
 alt_profanity_check>=1
+
+pandas
