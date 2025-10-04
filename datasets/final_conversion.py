@@ -104,6 +104,22 @@ def load_tweets():
     print(summary)
     return df[["tweets"]].rename(columns={"tweets": "text"}).assign(unified_label=df["unified_label"])
 
+def load_ucberkeley():
+    print("\n=== Loading UC Berkeley ===")
+    path = os.path.join(input_dir, "measuring-hate-speech.parquet")
+    df = pd.read_parquet(path)
+
+    def assign_label(val):
+        if val in [1, 2]:
+            return "Hate Speech"
+        else:
+            return "Skip"
+
+    df["unified_label"] = df["hatespeech"].apply(assign_label)
+    summary = df["unified_label"].value_counts()
+    print(summary)
+    return df[["text", "unified_label"]]
+
 # ======================
 # Main
 # ======================
@@ -117,7 +133,8 @@ def main():
         load_mutox(),
         load_jigsaw(),
         load_osf(),
-        load_tweets()
+        load_tweets(),
+        load_ucberkeley()
     ]
 
     final_df = pd.concat(datasets, ignore_index=True)
