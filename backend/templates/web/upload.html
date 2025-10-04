@@ -35,10 +35,12 @@
             <button class="btn btn-outline-secondary" type="button" id="clear-files">Clear</button>
           </div>
 
-          <button class="btn btn-primary" type="button" id="enqueue-btn">
-            <span class="btn-text">Analyze selected</span>
-            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="btn-spinner"></span>
-          </button>
+        <button class="btn btn-primary" type="button" id="enqueue-btn">
+          <span class="btn-text">Analyze selected</span>
+          <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true" id="btn-spinner"></span>
+        </button>
+        {% comment %} Optional link to reset session in dev {% endcomment %}
+        <a class="btn btn-link" href="{% url 'reset_session' %}">Reset session</a>
         </form>
 
         <div id="error" class="alert alert-danger d-none mt-3" role="alert"></div>

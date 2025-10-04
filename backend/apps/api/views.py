@@ -13,7 +13,6 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-
 from services.pipeline.steps import analyze_upload, save_upload
 from apps.web.models import UploadJob  # adjust if your app label/module differs
 
@@ -161,7 +160,6 @@ class AnalyzeView(APIView):
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
 
-
         except FileNotFoundError as e:
             detail = "ASR resources not available."
             if getattr(settings, "DEBUG", False):
@@ -226,7 +224,8 @@ class JobsView(APIView):
 
         payload = []
         for j in q:
-            filename = Path(j.upload_rel or j.upload_path).name if j.upload_path else None
+            # always show the original file name
+            filename = j.original_name or (Path(j.upload_rel or j.upload_path).name if j.upload_path else None)
             payload.append({
                 "id": str(j.id),
                 "filename": filename,
@@ -265,6 +264,8 @@ class JobsView(APIView):
 
             job = UploadJob.objects.create(
                 upload_path=str(src),
+                stored_name=Path(src).name,           # uuid.ext
+                original_name=getattr(f, "name", ""), # original filename from client
                 status=UploadJob.Status.PENDING,
                 **owner,
             )
@@ -283,8 +284,8 @@ class JobsView(APIView):
 
 class JobDetailView(APIView):
     """
-    GET /api/jobs/<uuid>/
-    Returns single job info scoped to the current principal.
+    GET    /api/jobs/<uuid>/    → job detail
+    DELETE /api/jobs/<uuid>/    → delete job (and files) if principal owns it
     """
     def get(self, request, job_id: UUID):
         try:
@@ -310,14 +311,27 @@ class JobDetailView(APIView):
             "full_text": job.full_text if job.status == UploadJob.Status.SUCCESS else None,
             "labels": job.labels if job.status == UploadJob.Status.SUCCESS else None,
             "detail_url": f"/job/{job.id}/",
+            # Names:
+            "original_name": job.original_name,
+            "stored_name": job.stored_name,
         }
         return Response(payload, status=status.HTTP_200_OK)
 
+    def delete(self, request, job_id: UUID):
+        try:
+            job = UploadJob.objects.get(id=job_id)
+        except UploadJob.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-# backend/apps/web/api/views.py (add)
+        if not _principal_owns(request, job):
+            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+
+        job.delete()  # model.delete() removes files safely
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class ASRHealthView(APIView):
     def get(self, request):
-        from django.conf import settings
         from pathlib import Path
 
         p = settings.VOSK_MODEL_DIR
