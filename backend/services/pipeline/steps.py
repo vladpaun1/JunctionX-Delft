@@ -136,7 +136,7 @@ def analyze_upload(
 
     # Step 2: Transcribe
     transcript_path = TRANSCRIPTS_DIR / (upload_path.stem + ".json")
-    if use_mock or model_path is None:
+    if use_mock:
         transcript = mock_vosk(norm_path)
         transcript_path.parent.mkdir(parents=True, exist_ok=True)
         transcript_path.write_text(json.dumps(transcript, indent=2))

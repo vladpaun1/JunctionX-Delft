@@ -1,3 +1,4 @@
+import traceback
 from pathlib import Path
 
 from django.conf import settings
@@ -9,39 +10,27 @@ from services.pipeline.steps import analyze_upload, save_upload
 
 
 class UploadView(View):
-    """
-    Simple HTML-based upload interface:
-    - GET → render form
-    - POST → save upload, normalize audio, (mock) transcribe, show metadata
-    """
-
     template_name = "upload.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        """Render the upload form."""
         return render(request, self.template_name)
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        """Handle file upload and analysis pipeline."""
         f = request.FILES.get("file")
         if not f:
             messages.error(request, "Please choose an audio or video file.")
             return render(request, self.template_name, status=400)
 
         try:
-            # Step 1: save upload to media/uploads
             src = save_upload(f)
 
-            # Step 2: run normalization + ASR (mock for MVP)
             result = analyze_upload(
                 upload_path=Path(src),
                 model_path=None,
-                use_mock=True,  # set to False once VoskASREngine is ready
+                use_mock=False,
             )
 
             transcript = result["transcript"]
-
-            # Step 3: collect metadata for display
             src_size = Path(src).stat().st_size
             wav_size = Path(result["normalized_path"]).stat().st_size
             length_sec = transcript.get("duration_sec", 0)
@@ -59,5 +48,16 @@ class UploadView(View):
             return render(request, self.template_name, context)
 
         except Exception as e:
+            # Capture full stack trace as a string
+            stack_trace = traceback.format_exc()
+
+            # Option 1: log it (recommended for Django)
+            print(stack_trace)  # or use logging.error(stack_trace)
+
+            # Option 2: show a generic error to the user
             messages.error(request, f"Processing failed: {e}")
+
+            # (optional) If you want to also show the trace in the template (not recommended in prod):
+            # messages.error(request, stack_trace)
+
             return render(request, self.template_name, status=500)
