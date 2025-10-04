@@ -95,6 +95,14 @@ def load_osf():
     print(summary)
     return df[["text", "unified_label"]]
 
+def load_tweets():
+    print("\n=== Loading Tweets ===")
+    path = os.path.join(input_dir, "tweets.csv")
+    df = pd.read_csv(path, delimiter=",")
+    df["unified_label"] = "Terrorism Support"  # Default label
+    summary = df["unified_label"].value_counts()
+    print(summary)
+    return df[["tweets"]].rename(columns={"tweets": "text"}).assign(unified_label=df["unified_label"])
 
 # ======================
 # Main
@@ -108,7 +116,8 @@ def main():
         load_davidson(),
         load_mutox(),
         load_jigsaw(),
-        load_osf()
+        load_osf(),
+        load_tweets()
     ]
 
     final_df = pd.concat(datasets, ignore_index=True)
