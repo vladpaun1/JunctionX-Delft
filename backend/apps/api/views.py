@@ -13,6 +13,11 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+import json
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden, Http404
+from django.shortcuts import get_object_or_404
+from django.utils.text import slugify
+
 from services.pipeline.steps import analyze_upload, save_upload
 from apps.web.models import UploadJob  # adjust if your app label/module differs
 
@@ -348,3 +353,110 @@ class ASRHealthView(APIView):
             "exists": exists,
             "sample_listing": listing,
         }, status=200 if exists else 503)
+
+
+
+def _load_json(path: str | Path):
+    try:
+        p = Path(path)
+        if p.exists():
+            return json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return None
+
+
+def _build_payload(job: UploadJob) -> dict:
+    """
+    Build export payload from model fields first; if transcript_text missing,
+    try to read the guessed transcript JSON file.
+
+    Output:
+    {
+      "job_id": "...",
+      "filename": "...",
+      "transcript_text": "...",
+      "flags": [{"label": str, "text": str, "start_sec": float, "end_sec": float}, ...]
+    }
+    """
+    # 1) Transcript text
+    transcript = job.full_text or ""
+
+    if not transcript:
+      # Try to load from the guessed transcript path
+      try:
+          tpath = job.guess_transcript_path()
+          if tpath:
+              pdata = _load_json(tpath)
+              if isinstance(pdata, dict):
+                  # Common shapes
+                  transcript = (
+                      pdata.get("text")
+                      or pdata.get("transcript")
+                      or " ".join(seg.get("text", "") for seg in pdata.get("segments", []))
+                      or ""
+                  )
+      except Exception:
+          pass
+
+    # 2) Flags from model.labels (list of [label, text, start, end])
+    flags = []
+    if isinstance(job.labels, list):
+        for item in job.labels:
+            if isinstance(item, (list, tuple)) and len(item) >= 4:
+                label, text, start, end = item[0], item[1], item[2], item[3]
+                flags.append({
+                    "label": label,
+                    "text": text,
+                    "start_sec": float(start) if start is not None else 0.0,
+                    "end_sec": float(end) if end is not None else 0.0,
+                })
+            elif isinstance(item, dict):
+                # allow dict-form too
+                flags.append({
+                    "label": item.get("label") or item.get("type") or "flag",
+                    "text": item.get("text") or item.get("span") or "",
+                    "start_sec": float(item.get("start_sec") or item.get("start") or 0.0),
+                    "end_sec": float(item.get("end_sec") or item.get("end") or 0.0),
+                })
+
+    filename = job.original_name or job.stored_name or (Path(job.upload_rel or job.upload_path).name if job.upload_path else "")
+
+    return {
+        "job_id": str(job.id),
+        "filename": filename,
+        "transcript_text": transcript,
+        "flags": flags,
+    }
+
+
+
+def job_data(request, job_id):
+    job = get_object_or_404(UploadJob, id=job_id)
+    if not _principal_owns(request, job):   # FIX here
+        return HttpResponseForbidden("Forbidden")
+    if job.status != UploadJob.Status.SUCCESS:
+        raise Http404("Job not finished")
+    payload = _build_payload(job)
+    return JsonResponse(payload, status=200, json_dumps_params={"ensure_ascii": False})
+
+
+def job_export(request, job_id):
+    job = get_object_or_404(UploadJob, id=job_id)
+    if not _principal_owns(request, job):   # FIX here
+        return HttpResponseForbidden("Forbidden")
+    if job.status != UploadJob.Status.SUCCESS:
+        raise Http404("Job not finished")
+
+    payload = _build_payload(job)
+    blob = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+
+    base_name = (
+        (getattr(job, "filename_original", None) or getattr(job, "filename", "") or "job")
+        .rsplit(".", 1)[0]
+    )
+    fname = f'{slugify(base_name) or "job"}-transcript.json'
+
+    resp = HttpResponse(blob, content_type="application/json; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="{fname}"'
+    return resp

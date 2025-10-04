@@ -205,7 +205,6 @@ def analyze_upload(
     else:
         transcript = transcribe_audio(norm_path, model_path, transcript_path)
 
-    print(transcript)
 
     # Step 3: formats json data into sentences: [sentence, start time, end time]
     n = len(transcript.get("segments", []))
