@@ -1,72 +1,97 @@
 {% extends 'layouts/base.html' %}
 {% load static %}
+{% load mediafmt %}
 
 {% block title %}Job {{ job.id }}{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/upload.css' %}">
+<link rel="stylesheet" href="{% static 'css/job_detail.css' %}">
 <div class="row">
-  <div class="col-lg-9 mx-auto">
+  <div class="col-lg-10 mx-auto">
     <div class="card shadow-sm">
       <div class="card-body">
         <h1 class="h4 mb-3">Job details</h1>
 
         <dl class="row">
-          <dt class="col-sm-3">Status</dt>
-          <dd class="col-sm-9">
-            {% if job.status == "SUCCESS" %}
-              <span class="badge bg-success">SUCCESS</span>
-            {% elif job.status == "FAILED" %}
-              <span class="badge bg-danger">FAILED</span>
-            {% elif job.status == "RUNNING" %}
-              <span class="badge bg-secondary">RUNNING</span>
-            {% else %}
-              <span class="badge bg-secondary">{{ job.status }}</span>
+            <dt class="col-sm-3">Status</dt>
+            <dd class="col-sm-9">
+                {% if job.status == "SUCCESS" %}<span class="badge bg-success">SUCCESS</span>
+                {% elif job.status == "FAILED" %}<span class="badge bg-danger">FAILED</span>
+                {% elif job.status == "RUNNING" %}<span class="badge bg-secondary">RUNNING</span>
+                {% else %}<span class="badge bg-secondary">{{ job.status }}</span>{% endif %}
+            </dd>
+
+            <dt class="col-sm-3">Original file</dt>
+            <dd class="col-sm-9">{{ job.original_name|default:"—" }}</dd>
+
+            <dt class="col-sm-3">Stored file</dt>
+            <dd class="col-sm-9">{{ job.stored_name|default:"—" }}</dd>
+
+            <dt class="col-sm-3">Uploaded path</dt>
+            <dd class="col-sm-9"><code>{{ job.upload_rel|default:job.upload_path }}</code></dd>
+
+            {# Removed "Normalized WAV" row entirely #}
+
+            <dt class="col-sm-3">Size</dt>
+            <dd class="col-sm-9">{{ job.src_size|filesize_km }}</dd>
+
+            <dt class="col-sm-3">Duration</dt>
+            <dd class="col-sm-9">{{ job.duration_sec|mmss }}</dd>
+
+            {% if job.error %}
+                <dt class="col-sm-3">Error</dt>
+                <dd class="col-sm-9 text-danger">{{ job.error }}</dd>
             {% endif %}
-          </dd>
-
-          <dt class="col-sm-3">Original file</dt>
-          <dd class="col-sm-9">{{ job.original_name|default:"—" }}</dd>
-
-          <dt class="col-sm-3">Stored file</dt>
-          <dd class="col-sm-9">{{ job.stored_name|default:"—" }}</dd>
-
-          <dt class="col-sm-3">Uploaded path</dt>
-          <dd class="col-sm-9"><code>{{ job.upload_rel|default:job.upload_path }}</code></dd>
-
-          <dt class="col-sm-3">Normalized WAV</dt>
-          <dd class="col-sm-9"><code>{{ job.normalized_rel|default:job.normalized_path|default:"—" }}</code></dd>
-
-          <dt class="col-sm-3">Sizes</dt>
-          <dd class="col-sm-9">
-            src: {{ job.src_size|default:"?" }} bytes,
-            wav: {{ job.wav_size|default:"?" }} bytes
-          </dd>
-
-          <dt class="col-sm-3">Duration</dt>
-          <dd class="col-sm-9">{{ job.duration_sec|default:"—" }} s</dd>
-
-          {% if job.error %}
-          <dt class="col-sm-3">Error</dt>
-          <dd class="col-sm-9 text-danger">{{ job.error }}</dd>
-          {% endif %}
         </dl>
 
-        {% if ok %}
+        {% if job.status == "SUCCESS" %}
           <hr />
-          <h5>Transcript</h5>
-          <pre class="small">{{ job.full_text|default:"(empty)" }}</pre>
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h5 class="mb-0">Transcript</h5>
+            <div class="legend">
+              <span class="chip bad">Bad language</span>
+              <span class="chip hate">Hate speech</span>
+              <span class="chip terror">Terrorism support</span>
+            </div>
+          </div>
+          
+            <div class="transcript-wrap" id="transcript-wrap">
+            <div class="gutter" id="transcript-gutter" aria-hidden="true"></div>
+            <div class="transcript" id="transcript">
+                {% for lbl, txt, start, end in job.labels %}
+                {% with l=lbl|lower %}
+                    {% if "skip" in l %}
+                    <span class="plain"
+                            data-start="{{ start|default_if_none:'' }}"
+                            data-end="{{ end|default_if_none:'' }}">
+                        {{ txt|escape }}
+                    </span>
+                    {% else %}
+                    <span class="flagged"
+                            tabindex="0"
+                            data-label="{{ lbl }}"
+                            data-start="{{ start|default_if_none:'' }}"
+                            data-end="{{ end|default_if_none:'' }}">
+                        {{ txt|escape }}
+                    </span>
+                    {% endif %}
+                {% endwith %}
+                <span> </span>
+                {% endfor %}
+            </div>
+            </div>
 
-          {% if job.labels %}
-            <h5 class="mt-3">Labels</h5>
-            <ul>
-              {% for lbl in job.labels %}
-                <li><code>{{ lbl.0 }}</code>: {{ lbl.1 }}</li>
-              {% endfor %}
-            </ul>
-          {% endif %}
+
+
         {% endif %}
       </div>
     </div>
   </div>
 </div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script src="{% static 'js/job_detail.js' %}"></script>
 {% endblock %}
