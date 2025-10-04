@@ -96,9 +96,12 @@ def _run_job_in_bg(job_id: UUID):
         job.finished_at = timezone.now()
         job.save()
 
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         job.status = UploadJob.Status.FAILED
-        job.error = "ASR resources not available."
+        err = "ASR resources not available."
+        if getattr(settings, "DEBUG", False):
+            err += f" (model_path={VOSK_MODEL_DIR!r}; err={e})"
+        job.error = err
         job.finished_at = timezone.now()
         job.save(update_fields=["status", "error", "finished_at"])
 
@@ -156,11 +159,14 @@ class AnalyzeView(APIView):
                 {"detail": str(e), "code": "conversion_failed"},
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
-        except FileNotFoundError:
-            return Response(
-                {"detail": "ASR resources not available.", "code": "asr_unavailable"},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
+
+        except FileNotFoundError as e:
+            detail = "ASR resources not available."
+            if getattr(settings, "DEBUG", False):
+                detail += f" (model_path={VOSK_MODEL_DIR!r}; err={e})"
+            return Response({"detail": detail, "code": "asr_unavailable"},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
         except Exception as e:
             return Response(
                 {"detail": f"Analysis failed: {e}", "code": "analysis_error"},
@@ -218,7 +224,8 @@ class JobsView(APIView):
 
         payload = []
         for j in q:
-            filename = Path(j.upload_rel or j.upload_path).name if j.upload_path else None
+            # always show the original file name
+            filename = j.original_name or (Path(j.upload_rel or j.upload_path).name if j.upload_path else None)
             payload.append({
                 "id": str(j.id),
                 "filename": filename,
@@ -257,6 +264,8 @@ class JobsView(APIView):
 
             job = UploadJob.objects.create(
                 upload_path=str(src),
+                stored_name=Path(src).name,           # uuid.ext
+                original_name=getattr(f, "name", ""), # original filename from client
                 status=UploadJob.Status.PENDING,
                 **owner,
             )
@@ -275,8 +284,8 @@ class JobsView(APIView):
 
 class JobDetailView(APIView):
     """
-    GET /api/jobs/<uuid>/
-    Returns single job info scoped to the current principal.
+    GET    /api/jobs/<uuid>/    → job detail
+    DELETE /api/jobs/<uuid>/    → delete job (and files) if principal owns it
     """
     def get(self, request, job_id: UUID):
         try:
@@ -302,5 +311,40 @@ class JobDetailView(APIView):
             "full_text": job.full_text if job.status == UploadJob.Status.SUCCESS else None,
             "labels": job.labels if job.status == UploadJob.Status.SUCCESS else None,
             "detail_url": f"/job/{job.id}/",
+            # Names:
+            "original_name": job.original_name,
+            "stored_name": job.stored_name,
         }
         return Response(payload, status=status.HTTP_200_OK)
+
+    def delete(self, request, job_id: UUID):
+        try:
+            job = UploadJob.objects.get(id=job_id)
+        except UploadJob.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not _principal_owns(request, job):
+            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+
+        job.delete()  # model.delete() removes files safely
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ASRHealthView(APIView):
+    def get(self, request):
+        from pathlib import Path
+
+        p = settings.VOSK_MODEL_DIR
+        exists = bool(p) and Path(p).exists()
+        listing = []
+        try:
+            if exists:
+                listing = sorted([x.name for x in Path(p).iterdir()][:10])  # first 10 entries
+        except Exception as e:
+            listing = [f"<ls error: {e}>"]
+
+        return Response({
+            "vosk_model_dir": p,
+            "exists": exists,
+            "sample_listing": listing,
+        }, status=200 if exists else 503)

@@ -1,9 +1,9 @@
-// static/js/upload_bulk.js
+// static/js/upload_bulk.js (full file)
 (function () {
   const form       = document.getElementById('bulk-form');
   const enqueueBtn = document.getElementById('enqueue-btn');
   const btnSpin    = document.getElementById('btn-spinner');
-  const btnText    = enqueueBtn.querySelector('.btn-text');
+  const btnText    = enqueueBtn?.querySelector('.btn-text');
   const errorEl    = document.getElementById('error');
   const overlay    = document.getElementById('overlay');
 
@@ -17,7 +17,7 @@
   // Helpers
   // ---------------------------------------------------------------------------
 
-  // Get CSRF token (works even if window.getCSRFToken not defined)
+  // Get CSRF token
   const getCookie = (name) => {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
@@ -49,21 +49,41 @@
   };
 
   const setUploading = (v) => {
+    if (!enqueueBtn) return;
     enqueueBtn.disabled = v;
-    btnSpin.classList.toggle('d-none', !v);
-    btnText.textContent = v ? 'Uploading…' : 'Analyze selected';
-    overlay.style.display = v ? 'flex' : 'none';
+    if (btnSpin) btnSpin.classList.toggle('d-none', !v);
+    if (btnText) btnText.textContent = v ? 'Uploading…' : 'Analyze selected';
+    if (overlay) overlay.style.display = v ? 'flex' : 'none';
   };
 
   const showError = (msg) => {
+    if (!errorEl) return;
     errorEl.textContent = msg;
     errorEl.classList.remove('d-none');
   };
-  const hideError = () => errorEl.classList.add('d-none');
+  const hideError = () => errorEl && errorEl.classList.add('d-none');
 
   // ---------------------------------------------------------------------------
   // Table rendering
   // ---------------------------------------------------------------------------
+
+  const actionHtmlFor = (id, status, error) => {
+    if (status === 'SUCCESS') {
+      return `
+        <div class="d-flex gap-2 justify-content-end">
+          <a class="btn btn-sm btn-outline-primary" href="/job/${id}/">See details</a>
+          <button class="btn btn-sm btn-outline-secondary btn-delete" data-id="${id}">Delete</button>
+        </div>`;
+    }
+    if (status === 'FAILED') {
+      return `
+        <div class="d-flex gap-2 justify-content-end">
+          <button class="btn btn-sm btn-outline-danger" disabled>Failed</button>
+          <button class="btn btn-sm btn-outline-secondary btn-delete" data-id="${id}">Delete</button>
+        </div>`;
+    }
+    return `<span class="spinner-border" role="status" aria-hidden="true"></span>`;
+  };
 
   const rowTpl = ({ id, filename, size, status, error }) => {
     const statusLabel = error
@@ -81,13 +101,6 @@
         ? `<span class="badge bg-danger">FAILED</span>`
         : `<span class="badge bg-secondary">${escapeHtml(statusLabel)}</span>`;
 
-    const actionHtml =
-      statusLabel === 'SUCCESS'
-        ? `<a class="btn btn-sm btn-outline-primary" href="/job/${id}/">See details</a>`
-        : statusLabel === 'FAILED'
-        ? `<button class="btn btn-sm btn-outline-danger" disabled>Failed</button>`
-        : `<span class="spinner-border" role="status" aria-hidden="true"></span>`;
-
     const infoHtml = error
       ? `<span class="text-danger small">${escapeHtml(error)}</span>`
       : '';
@@ -98,7 +111,7 @@
         <td>${size != null ? fmtBytes(size) : ''}</td>
         <td class="status">${statusHtml}</td>
         <td class="info">${infoHtml}</td>
-        <td class="text-end action">${actionHtml}</td>
+        <td class="text-end action">${actionHtmlFor(id, statusLabel, error)}</td>
       </tr>
     `;
   };
@@ -139,13 +152,21 @@
 
         if (data.status === 'SUCCESS') {
           statusCell.innerHTML = `<span class="badge bg-success">SUCCESS</span>`;
-          actionCell.innerHTML = `<a class="btn btn-sm btn-outline-primary" href="${data.detail_url}">See details</a>`;
+          actionCell.innerHTML = `
+            <div class="d-flex gap-2 justify-content-end">
+              <a class="btn btn-sm btn-outline-primary" href="${data.detail_url}">See details</a>
+              <button class="btn btn-sm btn-outline-secondary btn-delete" data-id="${id}">Delete</button>
+            </div>`;
           infoCell.textContent = '';
           clearInterval(iv);
           polling.delete(id);
         } else if (data.status === 'FAILED') {
           statusCell.innerHTML = `<span class="badge bg-danger">FAILED</span>`;
-          actionCell.innerHTML = `<button class="btn btn-sm btn-outline-danger" disabled>Failed</button>`;
+          actionCell.innerHTML = `
+            <div class="d-flex gap-2 justify-content-end">
+              <button class="btn btn-sm btn-outline-danger" disabled>Failed</button>
+              <button class="btn btn-sm btn-outline-secondary btn-delete" data-id="${id}">Delete</button>
+            </div>`;
           infoCell.innerHTML = data.error
             ? `<span class="text-danger small">${escapeHtml(data.error)}</span>`
             : '';
@@ -211,7 +232,7 @@
       (data.jobs || []).forEach((j) => {
         const jobView = {
           id: j.id || crypto.randomUUID(),
-          filename: j.filename,
+          filename: j.filename,   // original name from server
           size: j.size,
           status: j.error ? 'FAILED' : 'PENDING',
           error: j.error || null,
@@ -244,7 +265,7 @@
       (data.jobs || []).forEach((j) => {
         const jobView = {
           id: j.id,
-          filename: j.filename,
+          filename: j.filename,   // original name from API list
           size: j.size,
           status: j.status,
           error: j.error || null,
@@ -267,12 +288,40 @@
   // Event bindings
   // ---------------------------------------------------------------------------
 
-  enqueueBtn.addEventListener('click', enqueue);
+  enqueueBtn?.addEventListener('click', enqueue);
   form.addEventListener('submit', (e) => e.preventDefault());
 
   clearBtn.addEventListener('click', () => {
     filesInput.value = '';
     tbody.innerHTML = '';
     stopAllPolling();
+  });
+
+  // Delete job (and files) via API
+  tbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.btn-delete');
+    if (!btn) return;
+    const id = btn.getAttribute('data-id');
+    if (!id) return;
+
+    if (!confirm('Delete this job and its files?')) return;
+
+    try {
+      const res = await fetch(`/api/jobs/${id}/`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: { 'X-CSRFToken': getCSRF() },
+      });
+      if (res.status === 204) {
+        const tr = tbody.querySelector(`tr[data-id="${id}"]`);
+        tr && tr.remove();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showError(data.detail || `Failed to delete (HTTP ${res.status})`);
+      }
+    } catch (err) {
+      console.error('delete error', err);
+      showError(err?.message || 'Delete failed');
+    }
   });
 })();
