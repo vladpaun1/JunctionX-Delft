@@ -45,8 +45,250 @@ extreme-speech-filter/
 ```
 
 
+# Django in 5 minutes (how we use it)
+## 1) URLs → Views
 
+- URLconf routes HTTP paths to Python callables (views).
+- Root router: backend/core/urls.py
+- App router: backend/apps/<appname>/urls.py
 
+We mount app routes under /api/ (or another prefix) using include().
+### Example:
+
+```python
+# backend/apps/api/urls.py
+from django.urls import path
+from .views import PingView
+
+urlpatterns = [
+    path("ping/", PingView.as_view(), name="ping"),
+]
+```
+
+```python
+# backend/core/urls.py
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("api/", include("apps.api.urls")),
+]
+```
+
+## 2) Views (Django REST Framework)
+
+We use DRF’s APIView for JSON APIs.
+
+Return Response({...}) with JSON-serializable data.
+```python
+# backend/apps/api/views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+class PingView(APIView):
+    def get(self, request):
+        return Response({"status": "ok"})
+```
+For payload validation/serialization, add DRF Serializer classes.
+
+## 3) Models & ORM
+
+Models live in each app’s models.py.
+
+Run makemigrations when you change models; run migrate to apply to DB.
+```python 
+# backend/apps/api/models.py
+from django.db import models
+
+class AnalysisJob(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    filename = models.CharField(max_length=255)
+    transcript = models.JSONField(default=dict, blank=True)
+```
+```bash
+cd backend
+python manage.py makemigrations
+python manage.py migrate
+```
+
+Querying (examples):
+```python
+from apps.api.models import AnalysisJob
+AnalysisJob.objects.create(filename="demo.wav", transcript={"text": "hello"})
+AnalysisJob.objects.filter(filename__icontains="demo")
+```
+
+## 4) Admin (handy for quick inspection)
+```bash
+cd backend
+python manage.py createsuperuser
+# visit http://127.0.0.1:8000/admin/
+```
+Register your models in apps/api/admin.py:
+```python
+from django.contrib import admin
+from .models import AnalysisJob
+admin.site.register(AnalysisJob)
+```
+
+## 5) Templates (if we render HTML pages)
+
+Global templates: backend/templates/
+
+App templates: backend/apps/<app>/templates/<app>/...
+
+Turn on template discovery via APP_DIRS=True (already default).
+
+Access variables with {{ var }}, logic with {% ... %}.
+
+Basic example:
+```html
+{# backend/templates/index.html #}
+{% extends "base.html" %}
+{% block content %}
+  <h1>Upload audio</h1>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="file" accept="audio/*">
+    <button type="submit">Analyze</button>
+  </form>
+{% endblock %}
+```
+
+Useful template tags:
+
+{{ variable }} – output
+
+{% if %}…{% endif %}, {% for x in xs %}…{% endfor %}
+
+{% extends "base.html" %}, {% block content %}{% endblock %}
+
+{% load static %} + <link href="{% static 'css/site.css' %}" rel="stylesheet">
+
+For our API-first MVP we may not need templates; if we add a simple upload page, put it under backend/templates/ and add a basic Django view that returns render(request, "index.html").
+
+## 6) Static files (CSS/JS/images)
+
+Put global assets in backend/static/.
+
+Settings:
+```python 
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+```
+WhiteNoise serves static files in dev and production without extra infra.
+
+Collect (for production builds):
+```bash
+cd backend
+python manage.py collectstatic --noinput
+```
+## 7) Media (uploaded files)
+
+Files uploaded by users live under backend/media/.
+
+Settings:
+```python
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+```
+When accepting uploads in a view, save to MEDIA_ROOT (or use default_storage).
+
+## Adding a new app (pattern)
+```bash
+cd backend
+mkdir -p apps
+python manage.py startapp web apps/web
+
+# settings.py
+INSTALLED_APPS += ["apps.web"]
+
+# core/urls.py
+path("", include("apps.web.urls")),
+```
+Gotcha: app path in INSTALLED_APPS must match apps.py. Use apps.<name> consistently.
+
+## Vosk basics (for later endpoints)
+
+Install models into data/models/vosk/model/ (download script can automate).
+
+In code:
+
+```python
+from django.conf import settings
+from vosk import Model, KaldiRecognizer
+import wave, json
+
+model = Model(settings.VOSK_MODEL_DIR + "/model")
+wf = wave.open(wav_path, "rb")
+rec = KaldiRecognizer(model, wf.getframerate())
+rec.SetWords(True)
+```
+Expect mono, 16-bit PCM WAV for the MVP (convert ahead of time if needed).
+
+## Dev tools (from requirements/dev.txt)
+Formatters & linters
+```bash
+# Format code
+black backend
+
+# Sort imports
+isort backend
+
+# Lint (style/errors)
+flake8 backend
+```
+
+```bash
+pip install pre-commit
+cat > .pre-commit-config.yaml << 'YAML'
+repos:
+- repo: https://github.com/psf/black
+  rev: 24.8.0
+  hooks: [{id: black}]
+- repo: https://github.com/pycqa/isort
+  rev: 5.13.2
+  hooks: [{id: isort}]
+- repo: https://github.com/pycqa/flake8
+  rev: 7.1.1
+  hooks: [{id: flake8}]
+YAML
+
+pre-commit install
+# from now on, format/lint run on every commit
+```
+
+## Tests (pytest + pytest-django)
+
+Create backend/apps/api/tests/test_ping.py:
+```python
+def test_ping(client):
+    r = client.get("/api/ping/")
+    assert r.status_code == 200
+    assert r.json()["status"] == "ok"
+```
+Run:
+```bash
+pytest -q
+```
+pytest-django auto-detects the Django settings; if needed, set DJANGO_SETTINGS_MODULE=core.settings.
+
+## Common commands (cheatsheet)
+```bash
+# run dev server
+cd backend && python manage.py runserver 0.0.0.0:8000
+
+# db migrations
+python manage.py makemigrations
+python manage.py migrate
+
+# create admin user
+python manage.py createsuperuser
+
+# collect static (for prod)
+python manage.py collectstatic --noinput
+```
 
 # The challenge
 
