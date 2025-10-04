@@ -143,12 +143,16 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LABEL_MODEL_DIR = BASE_DIR / "services" / "label" / "model" / "artifacts"
 
-# Get environment variable, if any
-vosk_env = os.getenv("VOSK_MODEL_DIR")
 
-if vosk_env and vosk_env.strip() and vosk_env.lower() != "none":
-    # expand ~ and make it a Path
-    VOSK_MODEL_DIR = Path(vosk_env).expanduser()
-else:
-    # nothing set → explicit None
-    VOSK_MODEL_DIR = None
+RAW_VOSK = os.environ.get("VOSK_MODEL_DIR", "").strip()
+
+def _norm_vosk(val: str | None):
+    if not val:
+        return None
+    s = str(val).strip()
+    if s.lower() in {"none", "null", "false", "0"}:
+        return None
+    # allow relative paths, resolve to absolute
+    return str(Path(s).expanduser().resolve())
+
+VOSK_MODEL_DIR = _norm_vosk(RAW_VOSK)
