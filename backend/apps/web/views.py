@@ -55,7 +55,8 @@ class UploadView(View):
             print(stack_trace)  # or use logging.error(stack_trace)
 
             # Option 2: show a generic error to the user
-            messages.error(request, f"Processing failed: {e}\n Stack Trace: {stack_trace}")
-
+            messages.error(
+                request, f"Processing failed: {e}\n Stack Trace: {stack_trace}"
+            )
 
             return render(request, self.template_name, status=500)
