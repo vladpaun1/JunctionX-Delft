@@ -10,6 +10,7 @@ Pipeline utilities for handling uploads, audio normalization, and ASR transcript
 
 from __future__ import annotations
 
+import numpy as np
 import json
 import subprocess
 import uuid
@@ -28,6 +29,7 @@ MEDIA_ROOT = Path(settings.MEDIA_ROOT)
 UPLOAD_DIR = MEDIA_ROOT / "uploads"
 NORMALIZED_DIR = MEDIA_ROOT / "normalized"
 TRANSCRIPTS_DIR = MEDIA_ROOT / "transcripts"
+ARTIFACTS = Path("backend/services/label/model/artifacts")
 
 
 # ---------------------------------------------------------------------
@@ -184,18 +186,25 @@ def analyze_upload(
 
     # Step 3: formats json data into sentences: [sentence, start time, end time]
     sentences = []
-    for seg in transcript['segments']:
+    texts = []
+    for i, seg in enumerate(transcript['segments']):
         sentences.append([seg['text'], seg['result'][0]['start'], seg['result'][-1]['end']])
+        texts.append(seg['text'])
+    sentences = np.array(sentences, dtype=object)
 
-    probs = predict(s[0] for s in sentences)
+    from services.label.model.predictor import TextPredictor
 
-    timestamps = []
-    
-    for i in range(len(sentences)):
-        if probs[i] >= 0.75:
-            timestamps.append(sentences[i][0])
+    TextPredictor.load(ARTIFACTS)
 
+    labels = TextPredictor.predict(texts)
 
+    # probs = predict(s[0] for s in sentences)
+    #
+    # timestamps = []
+    # 
+    # for i in range(len(sentences)):
+    #     if probs[i] >= 0.75:
+    #         timestamps.append(sentences[i][0])
 
     return {
         "upload_path": str(upload_path),

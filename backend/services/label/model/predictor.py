@@ -1,11 +1,14 @@
-# Inference-only API used by Django views.
-
 from pathlib import Path
 import joblib
 from threading import Lock
+from typing import Union, List
 
 
 class TextPredictor:
+    """
+    Singleton-style text classifier wrapper around trained SVM + TF-IDF.
+    """
+
     _lock = Lock()
     _loaded = False
     _svm = None
@@ -13,27 +16,59 @@ class TextPredictor:
 
     @classmethod
     def load(cls, artifacts_dir: Path):
-        """Load once (thread-safe). Call at app startup or lazily before first use."""
+        """
+        Load the trained model and vectorizer (thread-safe).
+        Call once at startup, or before first use.
+        """
         with cls._lock:
             if not cls._loaded:
-                cls._svm = joblib.load(Path(artifacts_dir) / "svm_model.joblib")
-                cls._vec = joblib.load(Path(artifacts_dir) / "tfidf_vectorizer.joblib")
+                artifacts_dir = Path(artifacts_dir)
+                cls._svm = joblib.load(artifacts_dir / "svm_model.joblib")
+                cls._vec = joblib.load(artifacts_dir / "tfidf_vectorizer.joblib")
                 cls._loaded = True
 
     @classmethod
-    def predict(cls, text: str) -> str:
+    def predict(cls, texts: Union[str, List[str]]) -> Union[str, List[str]]:
+        """
+        Predict labels for a single string or a list of strings.
+
+        Args:
+            texts: text or list of texts to classify
+
+        Returns:
+            str if input is str, or List[str] if input is list
+        """
         if not cls._loaded:
             raise RuntimeError("Predictor not loaded. Call TextPredictor.load(...) first.")
-        X = cls._vec.transform([text])
-        return cls._svm.predict(X)[0]
+
+        single_input = False
+        if isinstance(texts, str):
+            texts = [texts]
+            single_input = True
+
+        X = cls._vec.transform(texts)
+        preds = cls._svm.predict(X)
+
+        return preds[0] if single_input else preds.tolist()
 
     @classmethod
-    def score_raw(cls, text: str) -> float:
+    def score_raw(cls, texts: Union[str, List[str]]) -> Union[float, List[float]]:
         """
-        Returns decision_function margin (useful for confidence sorting).
-        LinearSVC doesn't have predict_proba.
+        Return decision function scores for a single text or list.
+        Higher magnitude = more confident prediction.
         """
         if not cls._loaded:
             raise RuntimeError("Predictor not loaded.")
-        X = cls._vec.transform([text])
-        return float(cls._svm.decision_function(X)[0])
+
+        single_input = False
+        if isinstance(texts, str):
+            texts = [texts]
+            single_input = True
+
+        X = cls._vec.transform(texts)
+        scores = cls._svm.decision_function(X)
+
+        if scores.ndim == 2:  # multi-class case: return max margin
+            scores = scores.max(axis=1)
+
+        return float(scores[0]) if single_input else scores.tolist()
