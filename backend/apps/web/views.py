@@ -10,7 +10,7 @@ from services.pipeline.steps import analyze_upload, save_upload
 
 
 class UploadView(View):
-    template_name = "upload.html"
+    template_name = "web/upload.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
         return render(request, self.template_name)
