@@ -195,8 +195,7 @@ def analyze_upload(
         if probs[i] >= 0.75:
             timestamps.append(sentences[i][0])
 
-    print(sentences)
-    print(timestamps)
+
 
     return {
         "upload_path": str(upload_path),
