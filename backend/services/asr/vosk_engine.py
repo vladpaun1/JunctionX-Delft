@@ -20,6 +20,7 @@ class VoskASREngine:
                     "Make sure vosk is installed with its language models."
                 ) from e
         else:
+            print("AHHHHHHHHHHHHHHHHHHHH")
             model_dir = Path(model_path)
             if not model_dir.exists():
                 raise FileNotFoundError(f"Vosk model not found at {model_dir}")

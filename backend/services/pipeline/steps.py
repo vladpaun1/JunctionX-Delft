@@ -153,7 +153,6 @@ def transcribe_audio(
     """
     from services.asr import \
         VoskASREngine  # lazy import so project can start without model
-
     asr = VoskASREngine(model_path)
     transcript = asr.transcribe(str(input_file))
 
@@ -211,7 +210,6 @@ def analyze_upload(
     for i in range(n):
         result.append([labels[i], texts[i], timestamps[i][0], timestamps[i][1]])
 
-    print(result)
 
     full_text = " ".join(texts)
 

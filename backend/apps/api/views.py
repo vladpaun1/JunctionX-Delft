@@ -5,9 +5,12 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from django.conf import settings
 
 from services.pipeline.steps import analyze_upload, save_upload
 
+
+VOSK_MODEL_DIR = settings.VOSK_MODEL_DIR
 
 class PingView(APIView):
     def get(self, request):
@@ -44,7 +47,7 @@ class AnalyzeView(APIView):
         try:
             result = analyze_upload(
                 upload_path=Path(src),
-                model_path=None,
+                model_path=VOSK_MODEL_DIR,
                 use_mock=False,  # we don't use the mock anymore
             )
         except ValueError as e:
