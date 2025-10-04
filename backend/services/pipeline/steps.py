@@ -109,9 +109,8 @@ def transcribe_audio(
     """
     Run Vosk transcription and persist transcript JSON.
     """
-    from services.asr import (
-        VoskASREngine,  # lazy import so project can start without model
-    )
+    from services.asr import \
+        VoskASREngine  # lazy import so project can start without model
 
     asr = VoskASREngine(model_path)
     transcript = asr.transcribe(str(input_file))
