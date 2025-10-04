@@ -6,7 +6,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements/dev.txt
 python backend/manage.py migrate
-python backend/qmanage.py runserver 0.0.0.0:8000
+python backend/manage.py runserver 0.0.0.0:8000
 ```
 Test: ```GET /api/ping/``` → ```{"status":"ok","service":"backend"}```
 
