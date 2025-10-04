@@ -1,3 +1,25 @@
+# Extreme Speech Filter — Backend
+
+## Quick start
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements/dev.txt
+cd backend
+python manage.py migrate
+python manage.py runserver 0.0.0.0:8000
+```
+Test: ```GET /api/ping/``` → ```{"status":"ok","service":"backend"}```
+
+
+
+
+
+
+
+
+
+
 # The challenge
 
 Speech and voice technology is increasingly used, e.g., in emergency response centers, domestic voice assistants, and search engines. Because of the paramount relevance spoken language plays in our lives, it is critical that speech technology systems are able to
