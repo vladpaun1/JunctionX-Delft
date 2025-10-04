@@ -166,13 +166,13 @@ def transcribe_audio(input_file: Path, model_path: Path, transcript_out: Path) -
     """
     from services.asr import WhisperASREngine
 
-    # You can pass a model name ("tiny", "small", "medium") or a local path
+    # You can pass a model name ("tiny", "small", "medium", "base.en") or a local path
     engine = WhisperASREngine(
-        # model_name_or_path=str(model_path) if model_path else "small",
-        model_name_or_path="small",
+        # model_name_or_path=str(model_path) if model_path else "base.en",
+        model_name_or_path="base.en",
         device=None,          # auto: "cuda" if available else "cpu"
         compute_type=None,    # auto: int8 / int8_float16
-        language=None,        # auto-detect; set "en" to lock English
+        language="en",        # auto-detect; set "en" to lock English
         beam_size=1,          # greedy = fastest
         vad_filter=True,
         enable_word_timestamps=False,  # set True if you need per-word timings
