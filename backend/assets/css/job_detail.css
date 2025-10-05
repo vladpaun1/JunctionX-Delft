@@ -103,3 +103,15 @@
   height: 1px;
   background: rgba(0,0,0,.2);
 }
+
+
+.table-scroll {
+  overflow-x: hidden !important;
+}
+
+/* Allow wrapping of transcript and code lines so they don’t force horizontal scroll */
+.transcript, code {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
