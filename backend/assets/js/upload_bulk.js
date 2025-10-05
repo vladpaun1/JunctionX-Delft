@@ -198,8 +198,8 @@
         <div class="action-row">
           <button class="btn btn-outline-primary btn-sm btn-view" data-id="${id}">Details</button>
           <button class="btn btn-outline-secondary btn-sm btn-copy-json" data-id="${id}">Copy JSON</button>
-          <a class="btn btn-outline-dark btn-sm" href="/api/jobs/${id}/export/" download>Export JSON</a>
-          <button class="btn btn-outline-secondary btn-sm btn-delete" data-id="${id}">Delete</button>
+          <a class="btn btn-outline-secondary btn-sm" href="/api/jobs/${id}/export/" download>Export JSON</a>
+          <button class="btn btn-outline-danger btn-sm btn-delete" data-id="${id}">Delete</button>
         </div>`;
     }
     if (status === 'FAILED'){
