@@ -19,7 +19,7 @@ body { overflow: hidden; }
 /* ===== card fills (almost) the viewport and clips children ===== */
 .page-card{
   /* tweak this value if you want the card shorter/taller */
-  height: calc(100dvh - 100px);
+  height: calc(100dvh - 50px);
   display: flex;
   flex-direction: column;
   overflow: hidden; /* keep the table from bleeding past rounded corners */
