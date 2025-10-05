@@ -1,18 +1,32 @@
-// UB table rendering + polling
+// UB table rendering + polling (centered Action column; spinner only while pending)
 (function () {
   const UB = (window.UB = window.UB || {});
-  const { escapeHtml, fmtBytes, flash } = UB.dom;
-  const { listJobs, getJob } = UB.api;
-  const { openJobModal } = UB.modal;
 
-  // status + row ui
+  // --- safe access to other modules (prevents crash if order is off) ---
+  const dom   = UB.dom   || {};
+  const api   = UB.api   || {};
+  const modal = UB.modal || {};
+
+  const escapeHtml = dom.escapeHtml || ((x) => String(x));
+  const fmtBytes   = dom.fmtBytes   || (() => '—');
+  const flash      = dom.flash      || ((...args) => console.log('[flash]', ...args));
+
+  const listJobs     = api.listJobs || (async () => []);
+  const getJob       = api.getJob   || (async () => ({}));
+  const openJobModal = (modal && modal.openJobModal) ? modal.openJobModal : (() => {});
+
+  // --- status badge ---
   const statusBadge = (label) => {
     if (label === 'SUCCESS') return `<span class="badge bg-success">SUCCESS</span>`;
-    if (label === 'FAILED') return `<span class="badge bg-danger">FAILED</span>`;
+    if (label === 'FAILED')  return `<span class="badge bg-danger">FAILED</span>`;
     if (label === 'RUNNING') return `<span class="badge bg-secondary">RUNNING</span>`;
     return `<span class="badge text-bg-secondary">${escapeHtml(label || 'PENDING')}</span>`;
   };
 
+  // --- action row HTML ---
+  // SUCCESS: full button set
+  // FAILED : failed + delete
+  // PENDING/RUNNING: spinner ONLY (no Details button)
   const actionHtmlFor = (id, status, err) => {
     if (status === 'SUCCESS') {
       return `
@@ -30,13 +44,14 @@
           <button class="btn btn-outline-secondary btn-sm btn-delete" data-id="${id}">Delete</button>
         </div>`;
     }
+    // Pending / Running: spinner only
     return `
       <div class="action-row">
-        <button class="btn btn-outline-primary btn-sm btn-view" data-id="${id}">Details</button>
         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
       </div>`;
   };
 
+  // --- table row template (center the Action column) ---
   const rowTpl = ({ id, filename, size, status, error }) => {
     const lab = error
       ? 'FAILED'
@@ -53,10 +68,11 @@
         <td>${escapeHtml(filename || '')}</td>
         <td>${fmtBytes(size)}</td>
         <td class="status">${statusBadge(lab)}</td>
-        <td class="text-end action">${actionHtmlFor(id, lab, error)}</td>
+        <td class="action-cell">${actionHtmlFor(id, lab, error)}</td>
       </tr>`;
   };
 
+  // --- public: renderer (insert/replace rows) ---
   function createRenderer(tbody) {
     const upsertRow = (job) => {
       const existing = tbody.querySelector(`tr[data-id="${job.id}"]`);
@@ -66,10 +82,10 @@
       if (existing) tbody.replaceChild(fresh, existing);
       else tbody.prepend(fresh);
     };
-
     return { upsertRow };
   }
 
+  // --- public: poller (keeps statuses fresh) ---
   function createPoller(tbody) {
     const polling = new Map();
 
@@ -82,7 +98,7 @@
           if (!tr) return;
 
           const statusCell = tr.querySelector('.status');
-          const actionCell = tr.querySelector('.action');
+          const actionCell = tr.querySelector('.action-cell');
 
           if (data.status === 'SUCCESS') {
             statusCell.innerHTML = statusBadge('SUCCESS');
@@ -96,6 +112,7 @@
             clearInterval(iv);
             polling.delete(id);
           } else {
+            // Pending/Running — spinner only
             statusCell.innerHTML = statusBadge(data.status || 'PENDING');
             actionCell.innerHTML = actionHtmlFor(id, 'PENDING');
           }
@@ -115,9 +132,10 @@
     return { start, stopAll };
   }
 
+  // --- public: initial load (API returns newest → oldest already) ---
   async function loadMyJobs(tbody, poller) {
     try {
-      const jobs = await listJobs(50); // API returns newest→oldest
+      const jobs = await listJobs(50);
       tbody.innerHTML = jobs
         .map((j) =>
           rowTpl({
@@ -138,5 +156,24 @@
     }
   }
 
+  // --- minimal CSS (center Action column) ---
+  (function ensureStyles() {
+    const id = '__ub_table_styles__';
+    if (document.getElementById(id)) return;
+    const st = document.createElement('style');
+    st.id = id;
+    st.textContent = `
+      td.action-cell { text-align: center; }
+      .action-row {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .5rem;
+      }
+    `;
+    document.head.appendChild(st);
+  })();
+
+  // export
   UB.table = { createRenderer, createPoller, loadMyJobs, statusBadge, actionHtmlFor, openJobModal };
 })();
