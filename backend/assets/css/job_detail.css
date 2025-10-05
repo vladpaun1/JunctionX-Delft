@@ -115,3 +115,40 @@
   word-break: break-word;
   overflow-wrap: anywhere;
 }
+
+
+/* Dark mode for transcript + legend + tooltip + gutter ticks */
+:root[data-bs-theme="dark"] .transcript,
+:root[data-bs-theme="dark"] .transcript .plain {
+  color: #e5e7eb;
+}
+
+:root[data-bs-theme="dark"] .flagged:hover {
+  box-shadow: inset 0 -0.25em rgba(255, 255, 255, 0.04);
+}
+
+/* keep category colors but make backgrounds darker-friendly */
+:root[data-bs-theme="dark"] .lbl-bad   { background: rgba(255, 193, 7, 0.18);  border-bottom-color: #e1b300; }
+:root[data-bs-theme="dark"] .lbl-hate  { background: rgba(220, 53, 69, 0.18);  border-bottom-color: #c33a45; }
+:root[data-bs-theme="dark"] .lbl-terror{ background: rgba(111, 66, 193, 0.2);  border-bottom-color: #8460cf; }
+
+:root[data-bs-theme="dark"] .chip.bad   { background: rgba(255,193,7,.12);  border-color:#e1b300; color:#f8f9fa; }
+:root[data-bs-theme="dark"] .chip.hate  { background: rgba(220,53,69,.10); border-color:#c33a45; color:#f8f9fa; }
+:root[data-bs-theme="dark"] .chip.terror{ background: rgba(111,66,193,.12); border-color:#8460cf; color:#f8f9fa; }
+
+:root[data-bs-theme="dark"] .flag-fly {
+  background: #1f2430;
+  color: #e5e7eb;
+  border-color: rgba(255,255,255,.08);
+  box-shadow: 0 6px 18px rgba(0,0,0,.45);
+}
+:root[data-bs-theme="dark"] .flag-fly.bad   { border-color:#e1b300; }
+:root[data-bs-theme="dark"] .flag-fly.hate  { border-color:#c33a45; }
+:root[data-bs-theme="dark"] .flag-fly.terror{ border-color:#8460cf; }
+
+:root[data-bs-theme="dark"] .gutter .tick {
+  color: #9aa3af;
+}
+:root[data-bs-theme="dark"] .gutter .tick::after {
+  background: rgba(255,255,255,.2);
+}
