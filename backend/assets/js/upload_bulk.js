@@ -292,15 +292,24 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      (data.jobs || []).forEach((j)=>{
-        upsertRow({
-          id: j.id, filename: j.filename, size: j.size,
-          status: j.status, error: j.error || null
-        });
+      const jobs = (data.jobs || []);
+
+      // Render in the order received (API already returns newest → oldest).
+      tbody.innerHTML = jobs.map((j)=> rowTpl({
+        id: j.id,
+        filename: j.filename,
+        size: j.size,
+        status: j.status,
+        error: j.error || null
+      })).join('');
+
+      // Start polling for non-final jobs
+      jobs.forEach((j)=>{
         if (j.status!=='SUCCESS' && j.status!=='FAILED') startPolling(j.id);
       });
     }catch(e){ console.error('loadMyJobs error', e); }
   };
+
   document.readyState === 'loading'
     ? document.addEventListener('DOMContentLoaded', loadMyJobs)
     : loadMyJobs();

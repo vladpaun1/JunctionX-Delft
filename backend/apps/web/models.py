@@ -64,6 +64,9 @@ class UploadJob(models.Model):
         if not request.session.session_key:
             request.session.save()
         return {"session_key": request.session.session_key}
+    
+    class Meta:
+        ordering = ['-created_at']   # newest first
 
     # ------------- Safe file cleanup helpers -------------
     def _inside_media(self, p: Path) -> bool:
