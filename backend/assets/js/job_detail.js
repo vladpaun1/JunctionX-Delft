@@ -1,5 +1,6 @@
-(function () {
-  /* --------- helpers --------- */
+window.initializeJobDetail = function () {
+  (function () {
+     /* --------- helpers --------- */
   function mmss(v) {
     if (v === null || v === undefined || v === "") return "—";
     const s = Number(v);
@@ -92,7 +93,9 @@
       tick.className = "tick";
 
       // Put the tick near the text baseline: ~0.78 of the line box
-      const baselineY = row.top - wrapBox.top + (row.height * 0.25) + wrap.scrollTop;
+      // NEW (let ticks scroll with transcript content)
+      const baselineY = row.top - wrapBox.top + (row.height * 0.25);
+
       tick.style.top = `${baselineY}px`;
       tick.textContent = mmss(row.time);
 
@@ -111,4 +114,9 @@
   });
   const transcriptEl = document.getElementById("transcript");
   if (transcriptEl) ro.observe(transcriptEl);
-})();
+  })();
+};
+
+if (document.querySelector('#transcript')) {
+  window.initializeJobDetail();
+}

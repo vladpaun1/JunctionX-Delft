@@ -17,7 +17,7 @@
 
           <header class="mb-3">
             <h1 class="h4 mb-2">Bulk upload</h1>
-            <p class="text-muted mb-0">Choose multiple audio/video files. We’ll process each in the background.</p>
+            <p class="text-muted mb-0">Choose multiple audio/video files. We'll process each in the background.</p>
           </header>
 
           <form id="bulk-form" class="mb-3" enctype="multipart/form-data" novalidate>
@@ -68,6 +68,31 @@
     </div>
   </div>
 </div>
+
+{# === Job Detail Modal (Bootstrap 5) === #}
+<div class="modal fade" id="jobDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Job details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Filled dynamically -->
+        <div id="job-modal-body">
+          <div class="text-muted">Loading…</div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <a id="job-modal-open-page" class="btn btn-outline-primary d-none" target="_blank" rel="noopener">Open full page</a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}

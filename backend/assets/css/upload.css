@@ -107,3 +107,23 @@ body { overflow: hidden; }
 .toast button{ all: unset; cursor: pointer; margin-left:.75rem; opacity:.7; }
 .toast button:hover{ opacity:1; }
 
+/* Modal body: keep vertical scroll, avoid horizontal jitter */
+.modal .modal-body {
+  overflow-x: hidden;
+}
+
+/* Make long code/path lines wrap in modal */
+.modal .modal-body code,
+.modal .modal-body .transcript {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Ensure the transcript gutter/chips look fine in the modal too */
+.modal .transcript-wrap { position: relative; padding-left: 64px; }
+.modal .gutter { position: absolute; left: 0; top: 0; width: 56px; pointer-events: none; }
+
+
+/* keep the modal body as the scroll container */
+.modal-dialog-scrollable .modal-body { overflow-y: auto; position: relative; }
