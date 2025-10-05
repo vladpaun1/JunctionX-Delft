@@ -122,6 +122,15 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/upload_bulk.js' %}"></script>
-<script src="{% static 'js/theme.js' %}"></script>
+{% load static %}
+
+<script src="{% static 'js/ub/ub_dom.js' %}"></script>
+<script src="{% static 'js/ub/ub_api.js' %}"></script>
+<script src="{% static 'js/ub/ub_modal.js' %}"></script>   {# defines UB.modal #}
+<script src="{% static 'js/ub/ub_table.js' %}"></script>   {# defines UB.table (uses UB.modal) #}
+<script src="{% static 'js/ub/ub_bulk.js' %}"></script>
+
+<!-- entrypoint LAST -->
+<script src="{% static 'js/upload_bulk.main.js' %}"></script>
+
 {% endblock %}
