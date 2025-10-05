@@ -85,7 +85,38 @@ def load_osf():
         elif row["vo"] == 1:
             return "Bad Language"
         else:
+            
             return "Skip"
+    df["unified_label"] = df.apply(assign_label, axis=1)
+    summary = df["unified_label"].value_counts()
+    print(summary)
+    return df[["text", "unified_label"]]
+
+def load_mendeley():
+    print("\n=== Loading Mendeley ===")
+    path = os.path.join(input_dir, "mendeley.csv")
+    df = pd.read_csv(path)
+    
+    def assign_label(row):
+        if row["Label"] == 1:
+            return "Hate Speech"
+        else:
+            return "Skip"
+    df["unified_label"] = df.apply(assign_label, axis=1)
+    summary = df["unified_label"].value_counts()
+    print(summary)
+    return df[["Content", "unified_label"]]
+
+def load_tweets():
+    print("\n=== Loading Tweets ===")
+    path = os.path.join(input_dir, "Tweets.csv")
+    df = pd.read_csv(path)
+    
+    def assign_label(row):
+        if row["label"] == 4:
+            return "Skip"
+        else:
+            return "Terrorism Support"
     df["unified_label"] = df.apply(assign_label, axis=1)
     summary = df["unified_label"].value_counts()
     print(summary)
@@ -119,7 +150,9 @@ def main():
         load_mutox(),
         load_jigsaw(),
         load_osf(),
-        load_ucberkeley()
+        load_ucberkeley(),
+        load_mendeley(),
+        load_tweets()
     ]
 
     final_df = pd.concat(datasets, ignore_index=True)
