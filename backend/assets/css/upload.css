@@ -173,3 +173,12 @@ body { overflow: hidden; }
 #theme-toggle:hover {
   opacity: 1;
 }
+
+/* center the Action column */
+td.action-cell { text-align: center; }
+.action-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+}
