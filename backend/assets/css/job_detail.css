@@ -26,7 +26,7 @@
   background: rgba(220, 53, 69, 0.12);
   border-bottom-color: #dc3545;
 }
-.lbl-terror {
+.lbl-abuse {
   background: rgba(111, 66, 193, 0.14);
   border-bottom-color: #6f42c1;
 }
@@ -47,7 +47,7 @@
   background: rgba(220, 53, 69, 0.12);
   border: 1px solid #dc3545;
 }
-.chip.terror {
+.chip.abuse {
   background: rgba(111, 66, 193, 0.14);
   border: 1px solid #6f42c1;
 }
@@ -76,10 +76,9 @@
 .flag-fly.hate {
   border-color: #dc3545;
 }
-.flag-fly.terror {
+.flag-fly.abuse {
   border-color: #6f42c1;
 }
-
 
 /* Gutter for line timestamps */
 .transcript-wrap { position: relative; padding-left: 64px; }
@@ -104,7 +103,6 @@
   background: rgba(0,0,0,.2);
 }
 
-
 .table-scroll {
   overflow-x: hidden !important;
 }
@@ -115,7 +113,6 @@
   word-break: break-word;
   overflow-wrap: anywhere;
 }
-
 
 /* Dark mode for transcript + legend + tooltip + gutter ticks */
 :root[data-bs-theme="dark"] .transcript,
@@ -130,11 +127,11 @@
 /* keep category colors but make backgrounds darker-friendly */
 :root[data-bs-theme="dark"] .lbl-bad   { background: rgba(255, 193, 7, 0.18);  border-bottom-color: #e1b300; }
 :root[data-bs-theme="dark"] .lbl-hate  { background: rgba(220, 53, 69, 0.18);  border-bottom-color: #c33a45; }
-:root[data-bs-theme="dark"] .lbl-terror{ background: rgba(111, 66, 193, 0.2);  border-bottom-color: #8460cf; }
+:root[data-bs-theme="dark"] .lbl-abuse { background: rgba(111, 66, 193, 0.2);  border-bottom-color: #8460cf; }
 
 :root[data-bs-theme="dark"] .chip.bad   { background: rgba(255,193,7,.12);  border-color:#e1b300; color:#f8f9fa; }
 :root[data-bs-theme="dark"] .chip.hate  { background: rgba(220,53,69,.10); border-color:#c33a45; color:#f8f9fa; }
-:root[data-bs-theme="dark"] .chip.terror{ background: rgba(111,66,193,.12); border-color:#8460cf; color:#f8f9fa; }
+:root[data-bs-theme="dark"] .chip.abuse { background: rgba(111,66,193,.12); border-color:#8460cf; color:#f8f9fa; }
 
 :root[data-bs-theme="dark"] .flag-fly {
   background: #1f2430;
@@ -144,7 +141,7 @@
 }
 :root[data-bs-theme="dark"] .flag-fly.bad   { border-color:#e1b300; }
 :root[data-bs-theme="dark"] .flag-fly.hate  { border-color:#c33a45; }
-:root[data-bs-theme="dark"] .flag-fly.terror{ border-color:#8460cf; }
+:root[data-bs-theme="dark"] .flag-fly.abuse { border-color:#8460cf; }
 
 :root[data-bs-theme="dark"] .gutter .tick {
   color: #9aa3af;

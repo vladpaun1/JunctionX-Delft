@@ -18,22 +18,21 @@ body { overflow: hidden; }
 
 /* ===== card fills (almost) the viewport and clips children ===== */
 .page-card{
-  /* tweak this value if you want the card shorter/taller */
   height: calc(100dvh - 50px);
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* keep the table from bleeding past rounded corners */
+  overflow: hidden;
 }
 .page-card .card-body{
   display: flex;
   flex-direction: column;
-  min-height: 0;     /* critical for inner scroll to activate */
+  min-height: 0;
 }
 
 /* ===== table container owns leftover height inside card ===== */
 .table-shell{
   flex: 1 1 auto;
-  min-height: 0;               /* allow child to shrink */
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -41,9 +40,9 @@ body { overflow: hidden; }
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
-  overflow: auto;               /* scroll INSIDE the card */
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 0 .25rem .5rem;      /* breathing room at bottom edge */
+  padding: 0 .25rem .5rem;
 }
 
 /* ===== sticky header inside the scroll container ===== */
@@ -57,14 +56,14 @@ body { overflow: hidden; }
 
 /* ===== stable table layout + truncation ===== */
 #jobs-table{
-  table-layout: fixed;   /* prevents reflow when buttons replace spinners */
+  table-layout: fixed;
   width: 100%;
 }
 #jobs-table td, #jobs-table th{ vertical-align: middle; }
 #jobs-table td:nth-child(1){
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;   /* filenames don’t push the action column */
+  text-overflow: ellipsis;
 }
 
 /* ===== action buttons: wrap gracefully, never overflow ===== */
@@ -81,14 +80,13 @@ body { overflow: hidden; }
 
 /* ===== responsive column tweaks (optional) ===== */
 @media (max-width: 992px){
-  /* rebalance widths a bit when medium/narrow */
   #jobs-table colgroup col:nth-child(1){ width: 40% !important; }
   #jobs-table colgroup col:nth-child(2){ width: 14% !important; }
   #jobs-table colgroup col:nth-child(3){ width: 16% !important; }
   #jobs-table colgroup col:nth-child(4){ width: 30% !important; }
 }
 @media (max-width: 576px){
-  #jobs-table { table-layout: auto; } /* let the table breathe on phones */
+  #jobs-table { table-layout: auto; }
 }
 
 /* ===== lightweight toasts (your originals) ===== */
@@ -124,10 +122,8 @@ body { overflow: hidden; }
 .modal .transcript-wrap { position: relative; padding-left: 64px; }
 .modal .gutter { position: absolute; left: 0; top: 0; width: 56px; pointer-events: none; }
 
-
 /* keep the modal body as the scroll container */
 .modal-dialog-scrollable .modal-body { overflow-y: auto; position: relative; }
-
 
 /* Dark mode for transcript + legend + tooltip + gutter ticks */
 :root[data-bs-theme="dark"] .transcript,
@@ -142,11 +138,11 @@ body { overflow: hidden; }
 /* keep category colors but make backgrounds darker-friendly */
 :root[data-bs-theme="dark"] .lbl-bad   { background: rgba(255, 193, 7, 0.18);  border-bottom-color: #e1b300; }
 :root[data-bs-theme="dark"] .lbl-hate  { background: rgba(220, 53, 69, 0.18);  border-bottom-color: #c33a45; }
-:root[data-bs-theme="dark"] .lbl-terror{ background: rgba(111, 66, 193, 0.2);  border-bottom-color: #8460cf; }
+:root[data-bs-theme="dark"] .lbl-abuse { background: rgba(111, 66, 193, 0.2);  border-bottom-color: #8460cf; }
 
 :root[data-bs-theme="dark"] .chip.bad   { background: rgba(255,193,7,.12);  border-color:#e1b300; color:#f8f9fa; }
 :root[data-bs-theme="dark"] .chip.hate  { background: rgba(220,53,69,.10); border-color:#c33a45; color:#f8f9fa; }
-:root[data-bs-theme="dark"] .chip.terror{ background: rgba(111,66,193,.12); border-color:#8460cf; color:#f8f9fa; }
+:root[data-bs-theme="dark"] .chip.abuse { background: rgba(111,66,193,.12); border-color:#8460cf; color:#f8f9fa; }
 
 :root[data-bs-theme="dark"] .flag-fly {
   background: #1f2430;
@@ -156,7 +152,7 @@ body { overflow: hidden; }
 }
 :root[data-bs-theme="dark"] .flag-fly.bad   { border-color:#e1b300; }
 :root[data-bs-theme="dark"] .flag-fly.hate  { border-color:#c33a45; }
-:root[data-bs-theme="dark"] .flag-fly.terror{ border-color:#8460cf; }
+:root[data-bs-theme="dark"] .flag-fly.abuse { border-color:#8460cf; }
 
 :root[data-bs-theme="dark"] .gutter .tick {
   color: #9aa3af;
@@ -164,7 +160,6 @@ body { overflow: hidden; }
 :root[data-bs-theme="dark"] .gutter .tick::after {
   background: rgba(255,255,255,.2);
 }
-
 
 #theme-toggle {
   line-height: 1;

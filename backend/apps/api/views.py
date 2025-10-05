@@ -58,6 +58,51 @@ def _principal_owns(request, job: UploadJob) -> bool:
     return job.session_key == request.session.session_key
 
 
+# ---- Label normalization (frontend rename compatibility) -------------------
+
+def normalize_label(label: str | None) -> str:
+    """
+    Map legacy labels to the new taxonomy for API outputs/exports
+    without mutating DB state.
+    - Anything containing 'terror' → 'Abuse'
+    - Keep 'Hate speech' and 'Bad language' as-is if present
+    - Otherwise return the label unchanged (or 'Abuse' if clearly terror-like)
+    """
+    if not label:
+        return ""
+    l = str(label).strip()
+    ll = l.lower()
+    if "terror" in ll:  # covers "Terrorism support", "terror", etc.
+        return "Abuse"
+    # Pass-through for known buckets (capitalization normalized if desired)
+    if "hate" in ll:
+        return "Hate speech"
+    if "bad" in ll:
+        return "Bad language"
+    return l
+
+
+def normalize_labels_list(labels) -> list:
+    """
+    Preserve the original list shape (list of [label, text, start, end] or dicts),
+    but normalize the 'label' value.
+    """
+    out = []
+    if not isinstance(labels, list):
+        return out
+    for item in labels:
+        if isinstance(item, (list, tuple)) and len(item) >= 4:
+            label, text, start, end = item[0], item[1], item[2], item[3]
+            out.append([normalize_label(label), text, start, end])
+        elif isinstance(item, dict):
+            new_item = dict(item)
+            new_item["label"] = normalize_label(item.get("label") or item.get("type") or "")
+            out.append(new_item)
+        else:
+            out.append(item)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Background job runner
 # ---------------------------------------------------------------------------
@@ -229,7 +274,6 @@ class JobsView(APIView):
 
         payload = []
         for j in q:
-            # always show the original file name
             filename = j.original_name or (Path(j.upload_rel or j.upload_path).name if j.upload_path else None)
             payload.append({
                 "id": str(j.id),
@@ -301,6 +345,9 @@ class JobDetailView(APIView):
         if not _principal_owns(request, job):
             return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
 
+        # Normalize labels for API output (UI + clients) but keep DB untouched
+        labels_norm = normalize_labels_list(job.labels) if job.status == UploadJob.Status.SUCCESS else None
+
         payload = {
             "id": str(job.id),
             "status": job.status,
@@ -314,7 +361,7 @@ class JobDetailView(APIView):
             "wav_size": job.wav_size,
             "duration_sec": job.duration_sec,
             "full_text": job.full_text if job.status == UploadJob.Status.SUCCESS else None,
-            "labels": job.labels if job.status == UploadJob.Status.SUCCESS else None,
+            "labels": labels_norm if job.status == UploadJob.Status.SUCCESS else None,
             "detail_url": f"/job/{job.id}/",
             # Names:
             "original_name": job.original_name,
@@ -406,7 +453,7 @@ def _build_payload(job: UploadJob) -> dict:
             if isinstance(item, (list, tuple)) and len(item) >= 4:
                 label, text, start, end = item[0], item[1], item[2], item[3]
                 flags.append({
-                    "label": label,
+                    "label": normalize_label(label),
                     "text": text,
                     "start_sec": float(start) if start is not None else 0.0,
                     "end_sec": float(end) if end is not None else 0.0,
@@ -414,7 +461,7 @@ def _build_payload(job: UploadJob) -> dict:
             elif isinstance(item, dict):
                 # allow dict-form too
                 flags.append({
-                    "label": item.get("label") or item.get("type") or "flag",
+                    "label": normalize_label(item.get("label") or item.get("type") or "flag"),
                     "text": item.get("text") or item.get("span") or "",
                     "start_sec": float(item.get("start_sec") or item.get("start") or 0.0),
                     "end_sec": float(item.get("end_sec") or item.get("end") or 0.0),

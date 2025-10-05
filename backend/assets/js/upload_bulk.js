@@ -176,10 +176,10 @@
       .legend .chip{ display:inline-block; padding:.15rem .5rem; border-radius:999px; font-size:.75rem; margin-left:.25rem; }
       .chip.bad{ background:rgba(0,0,0,.08); }
       .chip.hate{ background:rgba(220,53,69,.12); }
-      .chip.terror{ background:rgba(255,193,7,.18); }
+      .chip.abuse{ background:rgba(255,193,7,.18); }
       .flag-fly{ position:fixed; left:0; top:0; transform:translate(-50%,-100%); background:#111; color:#fff; font-size:.75rem; padding:.25rem .5rem; border-radius:.5rem; opacity:0; pointer-events:none; transition:opacity .08s linear; }
       .flag-fly.hate{ background:#b02a37; }
-      .flag-fly.terror{ background:#ad7a00; }
+      .flag-fly.abuse{ background:#ad7a00; }
     `;
     document.head.appendChild(st);
   })();
@@ -416,7 +416,7 @@
         <div class="legend">
           <span class="chip bad">Bad language</span>
           <span class="chip hate">Hate speech</span>
-          <span class="chip terror">Terrorism support</span>
+          <span class="chip abuse">Abuse</span>
         </div>
       </div>
       <div class="transcript-wrap" id="transcript-wrap">
@@ -456,7 +456,8 @@
   function enhanceFlagsAndGutter(root){
     root.querySelectorAll('.flagged').forEach((el)=>{
       const label = (el.dataset.label || '').toLowerCase();
-      if (label.includes('terror')) el.classList.add('lbl-terror');
+      // Back-compat: treat both "abuse" and legacy "terror(ism support)" as the same bucket.
+      if (label.includes('abuse') || label.includes('terror')) el.classList.add('lbl-abuse');
       else if (label.includes('hate')) el.classList.add('lbl-hate');
       else el.classList.add('lbl-bad');
     });
@@ -477,9 +478,11 @@
     const showTip = (el)=>{
       const label = el.dataset.label || '—';
       const st = el.dataset.start, en = el.dataset.end;
-      const lbl = label.toLowerCase().includes('terror') ? 'terror'
+      const lbl = (label.toLowerCase().includes('abuse') || label.toLowerCase().includes('terror')) ? 'abuse'
                 : label.toLowerCase().includes('hate')   ? 'hate' : 'bad';
-      tip.textContent = `${label} • ${mmssLocal(st)}–${mmssLocal(en)}`;
+      // Display text normalized to "Abuse"
+      const display = (lbl === 'abuse') ? 'Abuse' : (lbl === 'hate' ? 'Hate speech' : 'Bad language');
+      tip.textContent = `${display} • ${mmssLocal(st)}–${mmssLocal(en)}`;
       tip.className = `flag-fly ${lbl}`;
       tip.style.opacity = '1';
     };
@@ -620,7 +623,6 @@
     if (!okJobs.length) return [];
 
     const results = [];
-    // fetch sequentially to avoid hammering the backend; order newest-first already from API
     for (const j of okJobs) {
       try{
         const r = await fetch(`/api/jobs/${j.id}/data/`, { credentials:'same-origin' });
@@ -677,14 +679,11 @@
   enqueueBtn.addEventListener('click', enqueue);
   form.addEventListener('submit', (e)=> e.preventDefault());
   clearBtn.addEventListener('click', () => {
-    // Only clear the current selection in the file input
     filesInput.value = '';
-    filesInput.dispatchEvent(new Event('change')); // if you want any change listeners to run
+    filesInput.dispatchEvent(new Event('change'));
     flash('Selection cleared.', 'info', 2000);
   });
 
-
-  // NEW: bulk action listeners
   if (copyAllBtn) {
     copyAllBtn.addEventListener('click', () => withBusy(copyAllBtn, doCopyAll, 'Collecting…'));
   }
@@ -693,7 +692,6 @@
   }
 
   tbody.addEventListener('click', async (e)=>{
-    // DETAILS (modal)
     const viewBtn = e.target.closest('.btn-view');
     if (viewBtn){
       const id = viewBtn.getAttribute('data-id');
@@ -701,7 +699,6 @@
       return;
     }
 
-    // DELETE
     const delBtn = e.target.closest('.btn-delete');
     if (delBtn){
       const id = delBtn.getAttribute('data-id'); if (!id) return;
@@ -725,7 +722,6 @@
       return;
     }
 
-    // COPY JSON (single)
     const copyBtn = e.target.closest('.btn-copy-json');
     if (copyBtn){
       const id = copyBtn.getAttribute('data-id'); if (!id) return;

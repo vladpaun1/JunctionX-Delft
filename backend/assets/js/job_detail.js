@@ -9,9 +9,11 @@ window.initializeJobDetail = function () {
     const sec = Math.floor(s % 60).toString().padStart(2, "0");
     return `${m}:${sec}`;
   }
+
+  // Back-compat: labels containing "abuse" OR legacy "terror" map to the same styles.
   function classFor(label) {
     const l = (label || "").toLowerCase();
-    if (l.includes("terror")) return { span: "lbl-terror", chip: "terror" };
+    if (l.includes("abuse") || l.includes("terror")) return { span: "lbl-abuse", chip: "abuse" };
     if (l.includes("hate"))   return { span: "lbl-hate",   chip: "hate" };
     if (l.includes("bad"))    return { span: "lbl-bad",    chip: "bad" };
     return { span: "lbl-bad", chip: "bad" };
@@ -31,7 +33,8 @@ window.initializeJobDetail = function () {
     el.classList.add(span);
 
     el.addEventListener("mouseenter", () => {
-      tip.textContent = `${label} • ${mmss(st)}–${mmss(en)}`;
+      const pretty = chip === 'abuse' ? 'Abuse' : chip === 'hate' ? 'Hate speech' : 'Bad language';
+      tip.textContent = `${pretty} • ${mmss(st)}–${mmss(en)}`;
       tip.className = `flag-fly ${chip}`;
       tip.style.opacity = "1";
     });
@@ -45,8 +48,9 @@ window.initializeJobDetail = function () {
     });
     el.addEventListener("mouseleave", () => { tip.style.opacity = "0"; });
     el.addEventListener("focus", () => {
-      tip.textContent = `${label} • ${mmss(st)}–${mmss(en)}`;
-      tip.className = `flag-fly ${chip}`;
+      const pretty = classFor(label).chip === 'abuse' ? 'Abuse' : classFor(label).chip === 'hate' ? 'Hate speech' : 'Bad language';
+      tip.textContent = `${pretty} • ${mmss(st)}–${mmss(en)}`;
+      tip.className = `flag-fly ${classFor(label).chip}`;
       tip.style.opacity = "1";
     });
     el.addEventListener("blur", () => { tip.style.opacity = "0"; });
@@ -61,17 +65,15 @@ window.initializeJobDetail = function () {
 
     gutter.innerHTML = "";
 
-    // Gather all inline rects (both plain & flagged now carry data-start)
     const pieces = body.querySelectorAll(".plain, .flagged");
 
-    // Map of visual rows keyed by rounded Y; for each, keep leftmost rect
     const rows = new Map();
 
     pieces.forEach((el) => {
       const tStart = Number(el.dataset.start);
       const rects = el.getClientRects();
       for (const r of rects) {
-        const key = Math.round(r.top); // group rects on the same visual row
+        const key = Math.round(r.top);
         const current = rows.get(key);
         if (!current || r.left < current.left) {
           rows.set(key, { left: r.left, top: r.top, height: r.height, time: tStart });
@@ -79,11 +81,9 @@ window.initializeJobDetail = function () {
       }
     });
 
-    // Sorted by vertical position
     const lines = Array.from(rows.values()).sort((a, b) => a.top - b.top);
     if (!lines.length) return;
 
-    // Place a tick every 5 lines (change step to taste)
     const wrapBox = wrap.getBoundingClientRect();
     const step = 5;
 
@@ -92,8 +92,6 @@ window.initializeJobDetail = function () {
       const tick = document.createElement("div");
       tick.className = "tick";
 
-      // Put the tick near the text baseline: ~0.78 of the line box
-      // NEW (let ticks scroll with transcript content)
       const baselineY = row.top - wrapBox.top + (row.height * 0.25);
 
       tick.style.top = `${baselineY}px`;
@@ -103,7 +101,6 @@ window.initializeJobDetail = function () {
     }
   }
 
-  // Recompute on load, resize, and when the transcript changes size
   window.addEventListener("load", buildGutter);
   window.addEventListener("resize", buildGutter);
 
