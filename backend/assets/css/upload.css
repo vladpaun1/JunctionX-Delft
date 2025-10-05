@@ -18,10 +18,12 @@ body { overflow: hidden; }
 
 /* ===== card fills (almost) the viewport and clips children ===== */
 .page-card{
-  height: calc(100dvh - 50px);
+  height: calc(100dvh - 100px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin-top: 50px;
+  margin-bottom: 50px;
 }
 .page-card .card-body{
   display: flex;
