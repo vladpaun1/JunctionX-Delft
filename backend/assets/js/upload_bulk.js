@@ -702,7 +702,7 @@
     const delBtn = e.target.closest('.btn-delete');
     if (delBtn){
       const id = delBtn.getAttribute('data-id'); if (!id) return;
-      if (!confirm('Delete this job and its files?')) return;
+      // if (!confirm('Delete this job and its files?')) return;
       try{
         const res = await fetch(`/api/jobs/${id}/`, {
           method:'DELETE', credentials:'same-origin',
