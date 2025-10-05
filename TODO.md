@@ -1,5 +1,4 @@
-make terrorism -> violence/drugs
-make clean button not remove entries on the lower panel
+general UI improvements
 
 clean up codebase
 
