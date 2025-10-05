@@ -104,6 +104,24 @@ def load_tweets():
     print(summary)
     return df[["tweets"]].rename(columns={"tweets": "text"}).assign(unified_label=df["unified_label"])
 
+def load_ucberkeley():
+    print("\n=== Loading UC Berkeley ===")
+    path = os.path.join(input_dir, "measuring-hate-speech.parquet")
+    df = pd.read_parquet(path)
+
+    def assign_label(val):
+        if val in [1, 2]:
+            return "Hate Speech"
+        else:
+            return "Skip"
+
+    df["unified_label"] = df["hatespeech"].apply(assign_label)
+    # Print summary of label distribution
+    summary = df["unified_label"].value_counts()
+    print(summary)
+
+    return df[["text", "unified_label"]]
+
 def load_berch():
     print("\n=== Loading Berch ===")
     path = os.path.join(input_dir, "berch.csv")
@@ -128,7 +146,7 @@ def main():
         load_mutox(),
         load_jigsaw(),
         load_osf(),
-        load_tweets(),
+        # load_tweets(),
         load_ucberkeley(),
         load_berch()
     ]
@@ -144,30 +162,30 @@ def main():
     # Shuffle reproducibly
     final_df = final_df.sample(frac=1, random_state=SEED).reset_index(drop=True)
 
-    # Split train/val/test (80/10/10)
-    train, temp = train_test_split(
-        final_df,
-        test_size=0.2,
-        random_state=SEED,
-        stratify=final_df["unified_label"]
-    )
-    val, test = train_test_split(
-        temp,
-        test_size=0.5,
-        random_state=SEED,
-        stratify=temp["unified_label"]
-    )
-
-    # Save splits
-    train.to_csv(os.path.join(final_dir, "train.csv"), index=False)
-    val.to_csv(os.path.join(final_dir, "val.csv"), index=False)
-    test.to_csv(os.path.join(final_dir, "test.csv"), index=False)
+    # # Split train/val/test (80/10/10)
+    # train, temp = train_test_split(
+    #     final_df,
+    #     test_size=0.2,
+    #     random_state=SEED,
+    #     stratify=final_df["unified_label"]
+    # )
+    # val, test = train_test_split(
+    #     temp,
+    #     test_size=0.5,
+    #     random_state=SEED,
+    #     stratify=temp["unified_label"]
+    # )
+    #
+    # # Save splits
+    # train.to_csv(os.path.join(final_dir, "train.csv"), index=False)
+    # val.to_csv(os.path.join(final_dir, "val.csv"), index=False)
+    # test.to_csv(os.path.join(final_dir, "test.csv"), index=False)
     final_df.to_csv(os.path.join(final_dir, "unified_dataset.csv"), index=False)
 
-    print("\n✅ Datasets saved to:", final_dir)
-    print("Train size:", len(train))
-    print("Val size:", len(val))
-    print("Test size:", len(test))
+    # print("\n✅ Datasets saved to:", final_dir)
+    # print("Train size:", len(train))
+    # print("Val size:", len(val))
+    # print("Test size:", len(test))
     print("\nLabel distribution in train:\n", train["unified_label"].value_counts())
 
 

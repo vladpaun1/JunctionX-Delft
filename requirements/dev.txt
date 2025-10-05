@@ -4,3 +4,5 @@ isort>=5.13
 flake8>=7.0
 pytest>=8.0
 pytest-django>=4.8
+pyarrow
+fastparquet
