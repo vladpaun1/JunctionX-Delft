@@ -1,6 +1,5 @@
 // upload_bulk.js
-// Full rewrite: in-page modal for job details with size/duration formatting,
-// label highlighting + tooltip, and left timestamp gutter (like job_detail.js).
+// Full rewrite: modal details + labels + gutter + bulk JSON actions.
 (function () {
   const form       = document.getElementById('bulk-form');
   if (!form) return;
@@ -13,6 +12,10 @@
   const filesInput = document.getElementById('files');
   const clearBtn   = document.getElementById('clear-files');
   const tbody      = document.getElementById('jobs-body');
+
+  // NEW: bulk buttons
+  const copyAllBtn   = document.getElementById('copy-all-json');
+  const exportAllBtn = document.getElementById('export-all-json');
 
   /* ---------------- Toasts ---------------- */
   let toastArea = document.getElementById('toast-area');
@@ -81,6 +84,7 @@
   };
 
   const pretty = (obj)=> JSON.stringify(obj, null, 2);
+
   const copyToClipboard = async (text)=>{
     try{ await navigator.clipboard.writeText(text); return true; }
     catch{
@@ -88,6 +92,23 @@
       ta.value=text; document.body.appendChild(ta); ta.select();
       const ok=document.execCommand('copy'); ta.remove(); return ok;
     }
+  };
+
+  const downloadBlob = (filename, dataStr) => {
+    const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const isoStamp = () => {
+    const d = new Date();
+    const pad = (n)=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
   };
 
   /* ---------------- Modal (auto-injected) ---------------- */
@@ -152,6 +173,13 @@
       .modal .modal-body code, .modal .modal-body .transcript{ white-space:normal; word-break:break-word; overflow-wrap:anywhere; }
       .modal .transcript-wrap{ position:relative; padding-left:64px; }
       .modal .gutter{ position:absolute; left:0; top:0; width:56px; pointer-events:none; }
+      .legend .chip{ display:inline-block; padding:.15rem .5rem; border-radius:999px; font-size:.75rem; margin-left:.25rem; }
+      .chip.bad{ background:rgba(0,0,0,.08); }
+      .chip.hate{ background:rgba(220,53,69,.12); }
+      .chip.terror{ background:rgba(255,193,7,.18); }
+      .flag-fly{ position:fixed; left:0; top:0; transform:translate(-50%,-100%); background:#111; color:#fff; font-size:.75rem; padding:.25rem .5rem; border-radius:.5rem; opacity:0; pointer-events:none; transition:opacity .08s linear; }
+      .flag-fly.hate{ background:#b02a37; }
+      .flag-fly.terror{ background:#ad7a00; }
     `;
     document.head.appendChild(st);
   })();
@@ -330,11 +358,6 @@
   };
 
   const renderTranscript = (meta, payload) => {
-    // Accept shapes:
-    // - payload.flags: [{label, text, start_sec, end_sec}, ...]
-    // - payload.labels: [[label, text, start, end], ...]  (fallback)
-    // - meta.labels:    [[label, text, start, end], ...]  (fallback)
-    // - payload.transcript_text: "..."
     const flags  = Array.isArray(payload?.flags) ? payload.flags : null;
     const labels = Array.isArray(payload?.labels) ? payload.labels
                   : Array.isArray(meta?.labels) ? meta.labels
@@ -365,7 +388,6 @@
         return `<span class="${cls}" ${dataLbl} data-start="${start??''}" data-end="${end??''}">${escapeHtml(text||'')}</span><span> </span>`;
       }).join('');
     } else if (txt) {
-      // raw transcript text only
       return `
         <div class="d-flex align-items-center justify-content-between mb-2">
           <h6 class="mb-0">Transcript</h6>
@@ -376,10 +398,9 @@
         </div>
       `;
     } else {
-      return ''; // nothing to render
+      return '';
     }
 
-    // With flags/labels we show the legend and build the spans with data-* we need
     return `
       <div class="d-flex align-items-center justify-content-between mb-2">
         <h6 class="mb-0">Transcript</h6>
@@ -395,7 +416,6 @@
       </div>
     `;
   };
-
 
   const renderJobModal = (meta, payload) => {
     const rows = [
@@ -415,21 +435,16 @@
 
     const transcriptBlock = renderTranscript(meta, payload);
 
-
     jobModalBody.innerHTML = `
       <dl class="row mb-3">${dl}</dl>
       ${errorRow}
       ${transcriptBlock}
     `;
 
-    // After injection, enhance flags (classes + tooltip) and build gutter.
     enhanceFlagsAndGutter(jobModalBody);
   };
 
-  // Add lbl-*, tooltip, and build left gutter inside `root` (modal content)
-  // Add lbl-*, tooltip, and build left gutter inside `root` (modal content)
   function enhanceFlagsAndGutter(root){
-    // --- classify chips
     root.querySelectorAll('.flagged').forEach((el)=>{
       const label = (el.dataset.label || '').toLowerCase();
       if (label.includes('terror')) el.classList.add('lbl-terror');
@@ -437,7 +452,6 @@
       else el.classList.add('lbl-bad');
     });
 
-    // --- tooltip (cursor-follow)
     let tip = root.querySelector('.flag-fly');
     if (!tip){
       tip = document.createElement('div');
@@ -476,7 +490,6 @@
       el.addEventListener('blur', hideTip);
     });
 
-    // --- left gutter timestamps (modal-safe: rebuild on scroll, no translateY)
     const wrap   = root.querySelector('#transcript-wrap');
     const body   = root.querySelector('#transcript');
     const gutter = root.querySelector('#transcript-gutter');
@@ -495,7 +508,6 @@
 
     const buildGutter = ()=>{
       gutter.innerHTML = '';
-
       const rows = new Map();
       const wrapRect = wrap.getBoundingClientRect();
 
@@ -503,7 +515,6 @@
         const tStart = Number(el.dataset.start);
         const rects = el.getClientRects();
         for (const r of rects) {
-          // content-relative Y; no scrollTop math
           const yContent = r.top - wrapRect.top;
           const key = Math.round(yContent);
           const current = rows.get(key);
@@ -516,7 +527,7 @@
       const lines = Array.from(rows.values()).sort((a,b)=>a.top-b.top);
       if (!lines.length) return;
 
-      const step = 5; // every 5 lines
+      const step = 5;
       for (let i=0;i<lines.length;i+=step){
         const row = lines[i];
         const tick = document.createElement('div');
@@ -528,7 +539,6 @@
       }
     };
 
-    // NOTE: no translateY() here — letting the gutter scroll *with* content
     let rafId;
     const schedule = ()=>{
       cancelAnimationFrame(rafId);
@@ -541,16 +551,11 @@
     const ro = new ResizeObserver(schedule);
     ro.observe(body);
 
-    // initial
     schedule();
   }
 
-
   const openJobModal = async (jobId) => {
-
-    // dynamically ensure job_detail.css and job_detail.js are loaded
     const ensureDetailAssets = () => {
-      // CSS
       if (!document.querySelector('link[data-jobdetail]')) {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
@@ -558,8 +563,6 @@
         link.dataset.jobdetail = '1';
         document.head.appendChild(link);
       }
-
-      // JS
       if (!window.__job_detail_loaded__) {
         const script = document.createElement('script');
         script.src = '/static/js/job_detail.js';
@@ -582,15 +585,83 @@
       const meta = metaRes.ok ? await metaRes.json() : {};
       const payload = (dataRes && dataRes.ok) ? await dataRes.json() : {};
       renderJobModal(meta, payload);
-      // re-run flag highlighting & gutter setup for modal content
       if (window.__job_detail_loaded__ && typeof window.initializeJobDetail === 'function') {
         window.initializeJobDetail();
       }
-
     } catch (e) {
       console.error('modal fetch error', e);
       jobModalBody.innerHTML = `<div class="text-danger">Failed to load job details.</div>`;
     }
+  };
+
+  /* ---------------- Bulk helpers (NEW) ---------------- */
+
+  // Fetch up to N jobs for current principal. Adjust limit if needed.
+  const fetchMyJobs = async (limit=200) => {
+    const res = await fetch(`/api/jobs/?limit=${limit}`, { credentials:'same-origin' });
+    if (!res.ok) throw new Error(`Failed to list jobs (HTTP ${res.status})`);
+    const data = await res.json();
+    return Array.isArray(data.jobs) ? data.jobs : [];
+  };
+
+  // Fetch payloads for all SUCCESS jobs
+  const fetchAllSuccessPayloads = async () => {
+    const jobs = await fetchMyJobs(200);
+    const okJobs = jobs.filter(j => j.status === 'SUCCESS'); // skip non-success
+    if (!okJobs.length) return [];
+
+    const results = [];
+    // fetch sequentially to avoid hammering the backend; order newest-first already from API
+    for (const j of okJobs) {
+      try{
+        const r = await fetch(`/api/jobs/${j.id}/data/`, { credentials:'same-origin' });
+        if (!r.ok) continue;
+        const payload = await r.json();
+        results.push(payload);
+      }catch(_e){
+        // ignore failures per job
+      }
+    }
+    return results;
+  };
+
+  const withBusy = async (btn, fn, busyLabel='Working…') => {
+    const spinner = btn.querySelector('.spinner-border');
+    const labelEl = btn.querySelector('.btn-label');
+    const original = labelEl ? labelEl.textContent : '';
+    btn.disabled = true;
+    if (spinner) spinner.classList.remove('d-none');
+    if (labelEl) labelEl.textContent = busyLabel;
+    try {
+      return await fn();
+    } finally {
+      if (spinner) spinner.classList.add('d-none');
+      if (labelEl) labelEl.textContent = original;
+      btn.disabled = false;
+    }
+  };
+
+  const doCopyAll = async () => {
+    const payloads = await fetchAllSuccessPayloads();
+    if (!payloads.length){
+      flash('No finished jobs to copy.', 'info', 2500);
+      return;
+    }
+    const txt = pretty(payloads);
+    const ok = await copyToClipboard(txt);
+    if (ok) flash(`Copied ${payloads.length} item(s) to clipboard.`, 'info', 2500);
+    else flash('Copy to clipboard failed.', 'danger');
+  };
+
+  const doExportAll = async () => {
+    const payloads = await fetchAllSuccessPayloads();
+    if (!payloads.length){
+      flash('No finished jobs to export.', 'info', 2500);
+      return;
+    }
+    const fname = `session-transcripts-${isoStamp()}.json`;
+    downloadBlob(fname, pretty(payloads));
+    flash(`Exported ${payloads.length} item(s) as ${fname}.`, 'info', 3000);
   };
 
   /* ---------------- Events ---------------- */
@@ -602,6 +673,14 @@
     stopAllPolling();
     flash('Selection cleared.', 'info', 2500);
   });
+
+  // NEW: bulk action listeners
+  if (copyAllBtn) {
+    copyAllBtn.addEventListener('click', () => withBusy(copyAllBtn, doCopyAll, 'Collecting…'));
+  }
+  if (exportAllBtn) {
+    exportAllBtn.addEventListener('click', () => withBusy(exportAllBtn, doExportAll, 'Collecting…'));
+  }
 
   tbody.addEventListener('click', async (e)=>{
     // DETAILS (modal)
@@ -636,7 +715,7 @@
       return;
     }
 
-    // COPY JSON
+    // COPY JSON (single)
     const copyBtn = e.target.closest('.btn-copy-json');
     if (copyBtn){
       const id = copyBtn.getAttribute('data-id'); if (!id) return;
