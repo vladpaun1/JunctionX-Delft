@@ -1,7 +1,18 @@
 {% if messages %}
-  <div class="container">
+<style>
+  .messages-float { 
+    position: fixed; right:16px; bottom:16px; z-index:5000; 
+    width:min(680px,92vw); display:flex; flex-direction:column; gap:.5rem;
+    opacity:0; transition:opacity .25s ease-in; pointer-events:none;
+  }
+  .messages-float.ready { opacity:1; pointer-events:auto; }
+  .messages-float .alert{margin:0}
+</style>
+  <div class="messages-float"
+       style="position:fixed;right:16px;bottom:16px;z-index:5000;width:min(680px,92vw);
+              display:flex;flex-direction:column;gap:.5rem;">
     {% for m in messages %}
-      <div class="alert alert-{{ m.tags|default:'secondary' }} alert-dismissible fade show" role="alert">
+      <div class="alert alert-{{ m.tags|default:'secondary' }} alert-dismissible fade show" role="alert" style="margin:0">
         {{ m }}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
       </div>

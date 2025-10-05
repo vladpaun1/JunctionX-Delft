@@ -1,17 +1,109 @@
-#jobs-table { table-layout: fixed; }
-#jobs-table td:nth-child(1) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#jobs-table td:last-child  { white-space: nowrap; padding-right: 1rem; }
+/* ===== page must not scroll; only the table area should ===== */
+html, body { height: 100%; }
+body { overflow: hidden; }
 
-/* Lightweight toast */
-.toast-area {
-  position: fixed; top: 1rem; left: 50%; transform: translateX(-50%);
-  z-index: 2000; display: flex; flex-direction: column; gap: .5rem; width: min(680px, 92vw);
+/* ===== fixed messages so alerts don’t push the card down ===== */
+.messages-fixed{
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5000;
+  width: min(960px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
 }
-.toast {
+.messages-fixed .alert{ margin: 0; }
+
+/* ===== card fills (almost) the viewport and clips children ===== */
+.page-card{
+  /* tweak this value if you want the card shorter/taller */
+  height: calc(100dvh - 100px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* keep the table from bleeding past rounded corners */
+}
+.page-card .card-body{
+  display: flex;
+  flex-direction: column;
+  min-height: 0;     /* critical for inner scroll to activate */
+}
+
+/* ===== table container owns leftover height inside card ===== */
+.table-shell{
+  flex: 1 1 auto;
+  min-height: 0;               /* allow child to shrink */
+  display: flex;
+  flex-direction: column;
+}
+.table-scroll{
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;               /* scroll INSIDE the card */
+  -webkit-overflow-scrolling: touch;
+  padding: 0 .25rem .5rem;      /* breathing room at bottom edge */
+}
+
+/* ===== sticky header inside the scroll container ===== */
+#jobs-table thead th{
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bs-body-bg, #fff);
+  box-shadow: 0 2px 0 rgba(0,0,0,.03);
+}
+
+/* ===== stable table layout + truncation ===== */
+#jobs-table{
+  table-layout: fixed;   /* prevents reflow when buttons replace spinners */
+  width: 100%;
+}
+#jobs-table td, #jobs-table th{ vertical-align: middle; }
+#jobs-table td:nth-child(1){
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;   /* filenames don’t push the action column */
+}
+
+/* ===== action buttons: wrap gracefully, never overflow ===== */
+#jobs-table td.text-end.action{ overflow: visible; }
+#jobs-table td.text-end.action > .d-flex,
+#jobs-table td.text-end.action .action-row{
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .4rem;
+  min-width: 0;
+}
+#jobs-table td.text-end.action .btn{ white-space: nowrap; }
+
+/* ===== responsive column tweaks (optional) ===== */
+@media (max-width: 992px){
+  /* rebalance widths a bit when medium/narrow */
+  #jobs-table colgroup col:nth-child(1){ width: 40% !important; }
+  #jobs-table colgroup col:nth-child(2){ width: 14% !important; }
+  #jobs-table colgroup col:nth-child(3){ width: 16% !important; }
+  #jobs-table colgroup col:nth-child(4){ width: 30% !important; }
+}
+@media (max-width: 576px){
+  #jobs-table { table-layout: auto; } /* let the table breathe on phones */
+}
+
+/* ===== lightweight toasts (your originals) ===== */
+.toast-area{
+  position: fixed; top: 1rem; left: 50%; transform: translateX(-50%);
+  z-index: 4000; display: flex; flex-direction: column; gap: .5rem;
+  width: min(680px, 92vw);
+}
+.toast{
   border-radius: .5rem; padding: .75rem .9rem; box-shadow: 0 6px 18px rgba(0,0,0,.12);
   display: flex; align-items: center; justify-content: space-between; font-size: .95rem;
+  border: 1px solid transparent;
 }
-.toast-danger { background: #f8d7da; color: #842029; border: 1px solid #f1aeb5; }
-.toast-success { background: #d1e7dd; color: #0f5132; border: 1px solid #a3cfbb; }
-.toast button { all: unset; cursor: pointer; margin-left: .75rem; opacity: .7; }
-.toast button:hover { opacity: 1; }
+.toast-danger{ background:#f8d7da; color:#842029; border-color:#f1aeb5; }
+.toast-success{ background:#d1e7dd; color:#0f5132; border-color:#a3cfbb; }
+.toast button{ all: unset; cursor: pointer; margin-left:.75rem; opacity:.7; }
+.toast button:hover{ opacity:1; }
+
