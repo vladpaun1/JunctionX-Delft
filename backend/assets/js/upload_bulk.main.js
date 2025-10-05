@@ -36,36 +36,53 @@
     if (btnText) btnText.textContent = v ? 'Uploading…' : 'Analyze selected';
   };
 
-  async function enqueue() {
+    async function enqueue() {
     const files = Array.from(filesInput.files || []);
     if (!files.length) {
-      showError('Please choose one or more audio/video files.');
-      return;
+        showError('Please choose one or more audio/video files.');
+        return;
     }
     hideError();
     setUploading(true);
+
+    // map filename -> size (bytes) for a best-effort match
+    const fileSizeByName = new Map(files.map(f => [f.name, f.size]));
+
     try {
-      const created = await createJobs(files);
-      created.forEach((j) => {
+        const created = await createJobs(files);
+
+        created.forEach((j) => {
+        // Prefer backend size; otherwise fall back to the chosen File size
+        const backendSize =
+            (j && (j.size ?? j.src_size ?? j.file_size ?? j.src_bytes)) ?? null;
+        const fallbackSize = fileSizeByName.get(j.filename) ?? null;
+        const chosenSize = backendSize ?? fallbackSize ?? null;
+
+        if (chosenSize && window.UB?.cache) {
+            UB.cache.setSize(j.id, chosenSize);
+        }
+
         const jobView = {
-          id: j.id || crypto.randomUUID(),
-          filename: j.filename,
-          size: j.size,
-          status: j.error ? 'FAILED' : 'PENDING',
-          error: j.error || null,
+            id: j.id || crypto.randomUUID(),
+            filename: j.filename,
+            size: chosenSize,            // pass what we know now
+            status: j.error ? 'FAILED' : 'PENDING',
+            error: j.error || null,
         };
         renderer.upsertRow(jobView);
         if (j.error) flash(`${j.filename || 'File'}: ${j.error}`, 'danger');
         if (!j.error && j.id) poller.start(j.id);
-      });
-      if (!created.length) showError('No files were accepted by the server.');
+        });
+
+        if (!created.length) showError('No files were accepted by the server.');
     } catch (err) {
-      console.error('[enqueue] error', err);
-      showError(err?.message || 'Unexpected error');
+        console.error('[enqueue] error', err);
+        showError(err?.message || 'Unexpected error');
     } finally {
-      setUploading(false);
+        setUploading(false);
     }
-  }
+    }
+
 
   // initial load
   const go = () => loadMyJobs(tbody, poller);
