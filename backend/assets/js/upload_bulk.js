@@ -667,12 +667,13 @@
   /* ---------------- Events ---------------- */
   enqueueBtn.addEventListener('click', enqueue);
   form.addEventListener('submit', (e)=> e.preventDefault());
-  clearBtn.addEventListener('click', ()=>{
-    filesInput.value='';
-    tbody.innerHTML='';
-    stopAllPolling();
-    flash('Selection cleared.', 'info', 2500);
+  clearBtn.addEventListener('click', () => {
+    // Only clear the current selection in the file input
+    filesInput.value = '';
+    filesInput.dispatchEvent(new Event('change')); // if you want any change listeners to run
+    flash('Selection cleared.', 'info', 2000);
   });
+
 
   // NEW: bulk action listeners
   if (copyAllBtn) {
