@@ -15,21 +15,8 @@ def _emit(cb: ProgressCB, stage: str, **info):
     if cb:
         cb(stage, info)
 
-def _fit_pipeline(X, y, use_class_weight=True, use_resampling=False, progress_cb: ProgressCB=None):
+def _fit_pipeline(X, y, use_class_weight=True, progress_cb: ProgressCB=None):
     _emit(progress_cb, "split_start")
-    if use_resampling:
-        _emit(progress_cb, "resample_start")
-        df_bal = pd.DataFrame({"text": X, "label": y})
-        min_size = df_bal["label"].value_counts().min()
-        frames = []
-        labels = list(df_bal["label"].unique())
-        for idx, lbl in enumerate(labels, 1):
-            sub = df_bal[df_bal["label"] == lbl]
-            frames.append(resample(sub, replace=False, n_samples=min_size, random_state=42))
-            _emit(progress_cb, "resample_progress", current=idx, total=len(labels), label=str(lbl))
-        df_bal = pd.concat(frames, ignore_index=True)
-        X, y = df_bal["text"], df_bal["label"]
-        _emit(progress_cb, "resample_done")
 
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     _emit(progress_cb, "split_done", train=len(X_tr), test=len(X_te))
@@ -61,7 +48,6 @@ def train_svm_model(
     text_col: str = "text",
     label_col: str = "unified_label",
     use_class_weight: bool = True,
-    use_resampling: bool = False,
     progress_cb: ProgressCB = None,
 ) -> Tuple[Path, Path]:
     _emit(progress_cb, "load_start", path=str(csv_path))
@@ -71,9 +57,7 @@ def train_svm_model(
     X = df[text_col]
     y = df[label_col]
 
-    svm, vectorizer, report = _fit_pipeline(
-        X, y, use_class_weight, use_resampling, progress_cb=progress_cb
-    )
+    svm, vectorizer, report = _fit_pipeline(X, y, use_class_weight, progress_cb=progress_cb)
 
     print(report)
 
