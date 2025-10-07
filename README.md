@@ -17,3 +17,14 @@ python backend/manage.py runserver 0.0.0.0:8000
 ```
 Test: ```GET /api/ping/``` → ```{"status":"ok","service":"backend"}```
 
+# Bibliography
+
+cjadams, Jeffrey Sorensen, Julia Elliott, Lucas Dixon, Mark McDonald, nithum, & Will Cukierski. (2017). Toxic Comment Classification Challenge. .
+
+Costa-jussà, M., Meglioli, M., Andrews, P., Dale, D., Hansanti, P., Kalbassi, E., Mourachko, A., Ropers, C., & Wood, C. (2024). MuTox: Universal MUltilingual Audio-based TOXicity Dataset and Zero-shot Detector. In L.-W. Ku, A. Martins, & V. Srikumar (Eds.), Findings of the Association for Computational Linguistics: ACL 2024 (pp. 5725–5734). Association for Computational Linguistics. https://doi.org/10.18653/v1/2024.findings-acl.34
+
+Davidson, T., Warmsley, D., Macy, M., & Weber, I. (2017). Automated Hate Speech Detection and the Problem of Offensive Language. In Proceedings of the 11th International AAAI Conference on Web and Social Media (pp. 512-515).
+
+Gibert, O., Perez, N., Garc\ia-Pablos, A., & Cuadros, M. (2018). Hate Speech Dataset from a White Supremacy Forum. In Proceedings of the 2nd Workshop on Abusive Language Online (ALW2) (pp. 11–20). Association for Computational Linguistics.
+
+Kennedy, B., Atari, M., Davani, A. M., Yeh, L., Omrani, A., Kim, Y., Coombs, K., Havaldar, S., Portillo-Wightman, G., Gonzalez, E., Hoover, J., Azatian, A., Hussain, A., Lara, A., Cardenas, G., Omary, A., Park, C., Wang, X., Wijaya, C., Zhang, Y., Meyerowitz, B., & Dehghani, M. (2022). Introducing the Gab Hate Corpus: defining and applying hate-based rhetoric to social media posts at scale. Language Resources and Evaluation, 56(1), 79–108. https://doi.org/10.1007/s10579-021-09569-x

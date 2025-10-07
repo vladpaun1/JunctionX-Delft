@@ -232,7 +232,10 @@ def analyze_upload(
     labels = TextPredictor.predict(texts)
     result = []
     for i in range(n):
-        result.append([labels[i], texts[i], timestamps[i][0], timestamps[i][1]])
+        if labels[i] == "Skip" and predict([texts[i]])[0] >= 0.75:
+            result.append(["Bad Language", texts[i], timestamps[i][0], timestamps[i][1]])
+        else: 
+            result.append([labels[i], texts[i], timestamps[i][0], timestamps[i][1]])
 
 
     full_text = " ".join(texts)
