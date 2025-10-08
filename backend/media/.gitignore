@@ -8,6 +8,3 @@ normalized/*
 transcripts/*
 !transcripts/.gitkeep
 
-labels/*
-!labels/.gitkeep
-
