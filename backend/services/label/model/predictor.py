@@ -23,6 +23,7 @@ class TextPredictor:
         with cls._lock:
             if not cls._loaded:
                 artifacts_dir = Path(artifacts_dir)
+                # Change to rf_model.joblib for Random Forest model or lr_model.joblib for Logistic Regression
                 cls._svm = joblib.load(artifacts_dir / "svm_model.joblib")
                 cls._vec = joblib.load(artifacts_dir / "tfidf_vectorizer.joblib")
                 cls._loaded = True
