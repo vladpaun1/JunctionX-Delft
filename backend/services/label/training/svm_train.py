@@ -1,4 +1,4 @@
-# backend/services/label/training/train.py
+# backend/services/label/training/svm_train.py
 from pathlib import Path
 import argparse
 from tqdm.auto import tqdm
