@@ -31,7 +31,7 @@ def _fit_pipeline(X, y, use_class_weight=True, progress_cb: ProgressCB=None):
     _emit(progress_cb, "vectorizer_transform_test_done")
 
     _emit(progress_cb, "svm_fit_start", class_weight=use_class_weight)
-    svm = LinearSVC(class_weight="balanced", random_state=42) if use_class_weight else LinearSVC(random_state=42)
+    svm = LinearSVC(class_weight=None, C=1, max_iter=1000, random_state=42) if use_class_weight else LinearSVC(random_state=42)
     svm.fit(X_tr_tf, y_tr)
     _emit(progress_cb, "svm_fit_done")
 
