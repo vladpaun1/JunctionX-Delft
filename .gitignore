@@ -6,5 +6,6 @@ __pycache__/
 .idea/
 .vscode/
 backend/staticfiles/
-# Environment
 .env
+*.pid
+*.sock
