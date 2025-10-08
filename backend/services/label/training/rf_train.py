@@ -20,7 +20,6 @@ def main():
     ap.add_argument("--out", default="backend/services/label/model/artifacts", help="Output dir for artifacts")
     ap.add_argument("--text-col", default="text")
     ap.add_argument("--label-col", default="unified_label")
-    ap.add_argument("--no-class-weight", action="store_true", help="Disable class_weight='balanced'")
     args = ap.parse_args()
 
     pbar = tqdm(total=len(STAGES), bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} • {desc}")
@@ -36,7 +35,6 @@ def main():
             out_dir=Path(args.out),
             text_col=args.text_col,
             label_col=args.label_col,
-            use_class_weight=not args.no_class_weight,
             progress_cb=on_progress,
         )
     finally:

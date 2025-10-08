@@ -14,7 +14,7 @@ def _emit(cb: ProgressCB, stage: str, **info):
     if cb:
         cb(stage, info)
 
-def _fit_pipeline(X, y, use_class_weight=True, progress_cb: ProgressCB=None):
+def _fit_pipeline(X, y, progress_cb: ProgressCB=None):
     _emit(progress_cb, "split_start")
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42)
     _emit(progress_cb, "split_done", train=len(X_tr), test=len(X_te))
@@ -30,7 +30,7 @@ def _fit_pipeline(X, y, use_class_weight=True, progress_cb: ProgressCB=None):
 
     _emit(progress_cb, "rf_fit_start")
     # WARNING: USES ALL CPU CORES
-    rf = RandomForestClassifier(n_estimators=100, random_state=42, class_weight="balanced", max_depth=50, n_jobs=-1) if use_class_weight else RandomForestClassifier(random_state=42)
+    rf = RandomForestClassifier(n_estimators=100, random_state=42, class_weight="balanced", max_depth=50, n_jobs=-1)
     rf.fit(X_tr_tf, y_tr)
     _emit(progress_cb, "rf_fit_done")
 
@@ -45,7 +45,6 @@ def train_rf_model(
     out_dir: Path,
     text_col: str = "text",
     label_col: str = "unified_label",
-    use_class_weight: bool = True,
     progress_cb: ProgressCB = None
 ) -> Tuple[RandomForestClassifier, TfidfVectorizer, str]:
     _emit(progress_cb, "start", path=str(csv_path))
@@ -55,7 +54,7 @@ def train_rf_model(
     X = df[text_col]
     y = df[label_col]
 
-    rf, vectorizer, report = _fit_pipeline(X, y, use_class_weight=use_class_weight, progress_cb=progress_cb)
+    rf, vectorizer, report = _fit_pipeline(X, y, progress_cb=progress_cb)
 
     print(report)
 
