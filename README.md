@@ -8,14 +8,39 @@ To use freely available speech data for training inclusive speech technology the
 # Extreme Speech Filter — Backend
 
 ## Quick start
+make sure docker and docker compose are installed
+to build the docker image:
+```bash
+docker compose up --build
+```
+then every time you want to run the server:
+```bash
+docker compose up
+```
+
+## other actions
+make sure you have all the python dev tools and are in your venv:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements/dev.txt
-python backend/manage.py migrate
-python backend/manage.py runserver 0.0.0.0:8000
 ```
-Test: ```GET /api/ping/``` → ```{"status":"ok","service":"backend"}```
+to get all the data in the unified dataset:
+```bash
+python datasets/final_conversion.py
+```
+to train the models:
+```bash
+python -m backend.services.label.training.svm_train \
+  --data datasets/final/unified_dataset.csv \
+  --out backend/services/label/model/artifacts
+python -m backend.services.label.training.rf_train \
+  --data datasets/final/unified_dataset.csv \
+  --out backend/services/label/model/artifacts
+python -m backend.services.label.training.lr_train \
+  --data datasets/final/unified_dataset.csv \
+  --out backend/services/label/model/artifacts
+```
 
 # Bibliography
 
