@@ -5,6 +5,7 @@ Improved version with .env support and better defaults.
 """
 
 import os
+import secrets
 from pathlib import Path
 from dotenv import load_dotenv, set_key
 
