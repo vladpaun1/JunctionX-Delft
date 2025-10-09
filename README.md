@@ -8,6 +8,14 @@ To use freely available speech data for training inclusive speech technology the
 # Extreme Speech Filter — Backend
 
 ## Quick start
+make a .env file in the root dir, and input this information:
+```.env
+DEBUG=1
+SECRET_KEY=<"key">
+ALLOWED_HOSTS=localhost,127.0.0.1
+CSRF_TRUSTED_ORIGINS=http://localhost:8000
+VOSK_MODEL_DIR=
+```
 make sure docker and docker compose are installed
 to build the docker image:
 ```bash
