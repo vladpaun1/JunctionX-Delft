@@ -25,6 +25,10 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements/dev.txt
 ```
+to migrate the database:
+```bash
+python backend/manage.py migrate
+```
 to get all the data in the unified dataset:
 ```bash
 python datasets/final_conversion.py
