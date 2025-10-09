@@ -6,7 +6,7 @@ Improved version with .env support and better defaults.
 
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key
 
 # ---------------------------------------------------------------------
 # Paths and environment
@@ -14,12 +14,28 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load .env file from project root
-load_dotenv(BASE_DIR.parent / ".env")
+ENV_PATH = BASE_DIR.parent / ".env"
+if ENV_PATH.exists():
+    load_dotenv(ENV_PATH)
 
 # ---------------------------------------------------------------------
 # Security
 # ---------------------------------------------------------------------
-SECRET_KEY = os.getenv("SECRET_KEY", "insecure-default-key")
+KEY_NAME = "SECRET_KEY"
+
+secret = os.getenv(KEY_NAME)
+
+if not secret:
+    secret = secrets.token_urlsafe(50)
+    set_key(str(ENV_PATH), KEY_NAME, secret)
+    try:
+        ENV_PATH.chmod(0o777)
+    except Exception:
+        pass
+
+os.environ[KEY_NAME] = secret
+SECRET_KEY = secret
+
 DEBUG = os.getenv("DEBUG", "1") == "1"
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -130,7 +146,7 @@ REST_FRAMEWORK = {
 }
 
 CORS_ALLOW_ALL_ORIGINS = DEBUG  # True only in dev
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:8000").split(",")
 
 # ---------------------------------------------------------------------
 # Default primary key field type
