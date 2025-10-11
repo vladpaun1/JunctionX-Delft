@@ -30,7 +30,7 @@ if not secret:
     secret = secrets.token_urlsafe(50)
     set_key(str(ENV_PATH), KEY_NAME, secret)
     try:
-        ENV_PATH.chmod(0o777)
+        ENV_PATH.chmod(0o644)
     except Exception:
         pass
 
