@@ -37,9 +37,13 @@ if not secret:
 os.environ[KEY_NAME] = secret
 SECRET_KEY = secret
 
-DEBUG = os.getenv("DEBUG", "1") == "1"
+DEBUG = True
 
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "web",
+]
 
 # ---------------------------------------------------------------------
 # Applications
@@ -82,12 +86,17 @@ ROOT_URLCONF = "core.urls"
 # ---------------------------------------------------------------------
 # Templates
 # ---------------------------------------------------------------------
+
+FRONTEND_DIR = BASE_DIR.parent / "frontend"
+FRONTEND_DIST = FRONTEND_DIR / "dist"
+FRONTEND_ASSETS = FRONTEND_DIST / "assets"
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
             BASE_DIR / "templates",             # keep any Django templates
-            BASE_DIR.parent / "frontend" / "dist",  # point to Vite’s output
+            *( [FRONTEND_DIST] if FRONTEND_DIST.exists() else [] ),  # Vite build ouput
         ],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -135,12 +144,11 @@ USE_TZ = True
 # ---------------------------------------------------------------------
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-# add dist/assets to staticfiles search path
-STATICFILES_DIRS = [
-    BASE_DIR / "assets",                 # your existing assets
-    BASE_DIR.parent / "frontend" / "dist" / "assets",
-]
 
+# Static files: keep your existing assets, plus dist/assets if present
+STATICFILES_DIRS = [BASE_DIR / "assets"]
+if FRONTEND_ASSETS.exists():
+    STATICFILES_DIRS.append(FRONTEND_ASSETS)
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -165,7 +173,11 @@ SPECTACULAR_SETTINGS = {
 
 
 
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:8000").split(",")
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 # ---------------------------------------------------------------------
 # Default primary key field type
