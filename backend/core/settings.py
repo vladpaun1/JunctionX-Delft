@@ -51,7 +51,8 @@ INSTALLED_APPS = [
 
     # third-party
     "rest_framework",
-    #"corsheaders",  # optional, for frontend/API dev
+    "drf_spectacular",
+    "corsheaders",
 
     # default Django apps
     "django.contrib.admin",
@@ -66,7 +67,7 @@ INSTALLED_APPS = [
 # Middleware
 # ---------------------------------------------------------------------
 MIDDLEWARE = [
-    # "corsheaders.middleware.CorsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -84,7 +85,10 @@ ROOT_URLCONF = "core.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],  # global templates directory
+        "DIRS": [
+            BASE_DIR / "templates",             # keep any Django templates
+            BASE_DIR.parent / "frontend" / "dist",  # point to Vite’s output
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -131,7 +135,12 @@ USE_TZ = True
 # ---------------------------------------------------------------------
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR / "assets"]  # your custom css/js/images
+# add dist/assets to staticfiles search path
+STATICFILES_DIRS = [
+    BASE_DIR / "assets",                 # your existing assets
+    BASE_DIR.parent / "frontend" / "dist" / "assets",
+]
+
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -139,14 +148,23 @@ MEDIA_ROOT = BASE_DIR / "media"
 # ---------------------------------------------------------------------
 # REST Framework & CORS
 # ---------------------------------------------------------------------
+
+# Local dev: front-end via Vite @localhost:5173
+CORS_ALLOW_ALL_ORIGINS = True  # for learning; lock down later
+
 REST_FRAMEWORK = {
-    "DEFAULT_RENDERER_CLASSES": (
-        "rest_framework.renderers.JSONRenderer",
-        "rest_framework.renderers.BrowsableAPIRenderer" if DEBUG else "rest_framework.renderers.JSONRenderer",
-    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "PAGE_SIZE": 50,
+}
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Extreme Speech Filter API",
+    "DESCRIPTION": "JSON API powering the React frontend",
+    "VERSION": "1.0.0",
 }
 
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # True only in dev
+
+
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:8000").split(",")
 
 # ---------------------------------------------------------------------
