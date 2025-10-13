@@ -1,31 +1,37 @@
-"""
-URL configuration for core project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
-
+# backend/core/urls.py
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.views.generic import TemplateView
+
+from django.views.generic.base import RedirectView
+
+# backend/core/urls.py
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
     path("api/", include("apps.api.urls")),
-    path("", include("apps.web.urls")),  # ← add this
 ]
 
-# serve user uploads in dev
+# --- Serve the React SPA in production (after `npm run build`)
+# Put your built files in e.g. backend/templates/index.html and collect static
+# or configure TEMPLATES to find the dist/index.html. Adjust as needed.
+if settings.DEBUG:
+    # Dev convenience: redirect root to Vite dev server
+    urlpatterns += [
+        path("", RedirectView.as_view(url="http://localhost:5173/", permanent=False)),
+    ]
+else:
+    # Prod: serve the built SPA
+    urlpatterns += [
+        re_path(r"^(?!api/|admin/|static/|media/).*$",
+                TemplateView.as_view(template_name="index.html"),
+                name="spa"),
+    ]
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

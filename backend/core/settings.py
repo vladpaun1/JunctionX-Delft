@@ -37,9 +37,13 @@ if not secret:
 os.environ[KEY_NAME] = secret
 SECRET_KEY = secret
 
-DEBUG = os.getenv("DEBUG", "1") == "1"
+DEBUG = True
 
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "web",
+]
 
 # ---------------------------------------------------------------------
 # Applications
@@ -51,7 +55,8 @@ INSTALLED_APPS = [
 
     # third-party
     "rest_framework",
-    #"corsheaders",  # optional, for frontend/API dev
+    "drf_spectacular",
+    "corsheaders",
 
     # default Django apps
     "django.contrib.admin",
@@ -66,7 +71,7 @@ INSTALLED_APPS = [
 # Middleware
 # ---------------------------------------------------------------------
 MIDDLEWARE = [
-    # "corsheaders.middleware.CorsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -81,10 +86,18 @@ ROOT_URLCONF = "core.urls"
 # ---------------------------------------------------------------------
 # Templates
 # ---------------------------------------------------------------------
+
+FRONTEND_DIR = BASE_DIR.parent / "frontend"
+FRONTEND_DIST = FRONTEND_DIR / "dist"
+FRONTEND_ASSETS = FRONTEND_DIST / "assets"
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],  # global templates directory
+        "DIRS": [
+            BASE_DIR / "templates",             # keep any Django templates
+            *( [FRONTEND_DIST] if FRONTEND_DIST.exists() else [] ),  # Vite build ouput
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -131,7 +144,11 @@ USE_TZ = True
 # ---------------------------------------------------------------------
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR / "assets"]  # your custom css/js/images
+
+# Static files: keep your existing assets, plus dist/assets if present
+STATICFILES_DIRS = [BASE_DIR / "assets"]
+if FRONTEND_ASSETS.exists():
+    STATICFILES_DIRS.append(FRONTEND_ASSETS)
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -139,15 +156,28 @@ MEDIA_ROOT = BASE_DIR / "media"
 # ---------------------------------------------------------------------
 # REST Framework & CORS
 # ---------------------------------------------------------------------
+
+# Local dev: front-end via Vite @localhost:5173
+CORS_ALLOW_ALL_ORIGINS = True  # for learning; lock down later
+
 REST_FRAMEWORK = {
-    "DEFAULT_RENDERER_CLASSES": (
-        "rest_framework.renderers.JSONRenderer",
-        "rest_framework.renderers.BrowsableAPIRenderer" if DEBUG else "rest_framework.renderers.JSONRenderer",
-    ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "PAGE_SIZE": 50,
+}
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Extreme Speech Filter API",
+    "DESCRIPTION": "JSON API powering the React frontend",
+    "VERSION": "1.0.0",
 }
 
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # True only in dev
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:8000").split(",")
+
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 # ---------------------------------------------------------------------
 # Default primary key field type
