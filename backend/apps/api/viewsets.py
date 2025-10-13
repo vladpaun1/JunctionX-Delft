@@ -13,7 +13,7 @@ from django.http import HttpResponse
 from rest_framework import status, viewsets, mixins
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny
 from rest_framework.response import Response
 
 from apps.web.models import UploadJob
@@ -92,7 +92,7 @@ class UploadJobViewSet(mixins.ListModelMixin,
         return UploadJobDetailSerializer if self.action in {"retrieve"} else UploadJobListSerializer
 
     # POST /api/jobs/bulk/
-    @action(detail=False, methods=["post"], url_path="bulk")
+    @action(detail=False, methods=["post"], url_path="bulk", permission_classes=[AllowAny])
     def bulk(self, request):
         files = request.FILES.getlist("files")
         if not files:
