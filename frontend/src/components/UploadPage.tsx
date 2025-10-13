@@ -19,6 +19,9 @@ export default function UploadPage() {
     setJobs(cur => cur.map(j => j.id === id ? { ...j, ...patch } : j))
   }
 
+  const removeRow = (id: string) =>
+    setJobs(prev => prev.filter(j => j.id !== id))
+
   useEffect(() => {
     (async () => {
       try {
@@ -115,6 +118,7 @@ export default function UploadPage() {
                 onView={openModal}
                 onError={(m) => push({ msg: m, kind: 'danger' })}
                 refreshRow={refreshRow}
+                onRemove={removeRow}
               />
 
             </div>

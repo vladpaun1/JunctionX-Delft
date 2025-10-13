@@ -9,11 +9,13 @@ export default function JobsTable({
   onView,
   onError,
   refreshRow,
+  onRemove,
 }: {
   jobs: JobListItem[]
   onView: (id: string) => void
   onError: (msg: string) => void
   refreshRow: (id: string, patch: Partial<JobListItem>) => void
+  onRemove: (id: string) => void
 }) {
   const polling = useRef<Map<string, number>>(new Map())
 
@@ -44,6 +46,16 @@ export default function JobsTable({
     return () => { polling.current.forEach(clearInterval); polling.current.clear() }
   }, [jobs, onError, refreshRow])
 
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteJob(id)               // server delete
+      onRemove(id)                      // remove from UI
+    } catch (e: any) {
+      onError(e?.message || 'Delete failed')
+    }
+  }
+
   const rows = useMemo(() => {
     return jobs.map(j => {
       const size = j.src_size ?? cache.getSize(j.id)
@@ -58,18 +70,12 @@ export default function JobsTable({
           <div className="action-row">
             <button className="btn btn-outline-primary btn-sm" onClick={() => onView(j.id)}>Details</button>
             <a className="btn btn-outline-secondary btn-sm" href={`/api/jobs/${j.id}/export/`} download>Export JSON</a>
-            <button className="btn btn-outline-danger btn-sm" onClick={async () => {
-              try { await deleteJob(j.id) } catch (e:any) { onError(e?.message || 'Delete failed') }
-              refreshRow(j.id, { status: 'FAILED' as any })
-            }}>Delete</button>
+            <button className="btn btn-outline-danger btn-sm" onClick={() => handleDelete(j.id)}>Delete</button>
           </div>
         ) : j.status === 'FAILED' ? (
           <div className="action-row">
             <button className="btn btn-outline-danger btn-sm" disabled>Failed</button>
-            <button className="btn btn-outline-secondary btn-sm" onClick={async () => {
-              try { await deleteJob(j.id) } catch (e:any) { onError(e?.message || 'Delete failed') }
-              refreshRow(j.id, { status: 'FAILED' as any })
-            }}>Delete</button>
+            <button className="btn btn-outline-secondary btn-sm" onClick={() => handleDelete(j.id)}>Delete</button>
           </div>
         ) : (
           <div className="action-row"><span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" /></div>
