@@ -6,6 +6,7 @@ import ToastArea from './Toasts'
 import { useToasts } from '../hooks/useToasts'
 import type { JobListItem, JobDetail, JobDataPayload } from '../lib/types'
 import { listJobs, bulkCreate, getJob, getJobData } from '../lib/api'
+import { resetSession } from '../lib/api'
 
 export default function UploadPage() {
   const { toasts, push, remove } = useToasts()
@@ -40,6 +41,19 @@ export default function UploadPage() {
     if (el) el.value = ''
     push({ msg: 'Selection cleared.', kind: 'info', ms: 2000 })
   }
+
+  const onResetSession = async () => {
+  try {
+    await resetSession()
+    setJobs([])             // clear UI immediately
+    setFiles([])
+    const el = document.getElementById('files') as HTMLInputElement | null
+    if (el) el.value = ''
+    push({ msg: 'Session reset.', kind: 'info', ms: 2500 })
+  } catch (e: any) {
+    push({ msg: e?.message || 'Failed to reset session', kind: 'danger' })
+  }
+}
 
   const onAnalyze = async () => {
     if (!files.length) { push({ msg: 'Please choose one or more audio/video files.', kind: 'danger' }); return }
@@ -101,14 +115,12 @@ export default function UploadPage() {
                     <span className="btn-label">{busy ? 'Uploading…' : 'Analyze selected'}</span>
                     {busy && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true" />}
                   </button>
-
-                  {/* optional: reset session link if you keep that endpoint in Django
-                  <a className="link-secondary" href="/reset-session/">Reset session</a>
-                  */}
+                  <button className="btn btn-outline-secondary" type="button" onClick={onResetSession}>
+                    Reset session
+                  </button>
 
                   <div className="vr d-none d-sm-block" />
-
-                  {/* TODO later: Copy All / Export All actions */}
+                  {/* …(Copy All / Export All can go here later)… */}
                 </div>
               </form>
 

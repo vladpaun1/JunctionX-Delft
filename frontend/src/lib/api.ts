@@ -50,3 +50,9 @@ export async function deleteJob(id: string): Promise<void> {
     throw new Error(data.detail || `Failed to delete (HTTP ${r.status})`)
   }
 }
+
+export async function resetSession(): Promise<void> {
+  const r = await fetch('/api/reset-session/', { credentials: 'include' })
+  if (!r.ok) throw new Error('Failed to reset session')
+}
+
