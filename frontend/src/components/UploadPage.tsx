@@ -8,6 +8,7 @@ import { useToasts } from '../hooks/useToasts'
 import type { JobListItem, JobDetail, JobDataPayload } from '../lib/types'
 import { listJobs, bulkCreate, getJob, getJobData, resetSession } from '../lib/api'
 import { copyToClipboard, pretty, isoStamp, downloadBlob } from '../lib/utils'
+import { cache } from '../lib/cache'
 
 export default function UploadPage() {
   const { toasts, push, remove } = useToasts()
@@ -27,6 +28,7 @@ export default function UploadPage() {
     (async () => {
       try {
         const rows = await listJobs(50)
+        cache.hydrateJobs(rows)    // <--- restore cached sizes
         setJobs(rows)
       } catch (e:any) {
         push({ msg: e?.message || 'Failed to load jobs', kind: 'danger' })
@@ -46,15 +48,18 @@ export default function UploadPage() {
     setBusy(true)
     try {
       const created = await bulkCreate(files)
-      const updates: JobListItem[] = created.map((j: any) => ({
-        id: j.id || crypto.randomUUID(),
-        filename: j.filename || '',
-        status: j.error ? 'FAILED' : 'PENDING',
-        error: j.error || null,
-        src_size: j.size ?? null,
-        wav_size: null,
-        duration_sec: null,
-      }))
+      const updates: JobListItem[] = created.map((j: any) => {
+        if (j.size) cache.setSize(j.id, j.size)
+        return {
+          id: j.id || crypto.randomUUID(),
+          filename: j.filename || '',
+          status: j.error ? 'FAILED' : 'PENDING',
+          error: j.error || null,
+          src_size: j.size ?? null,
+          wav_size: null,
+          duration_sec: null,
+        }
+      })
       setJobs(cur => [...updates, ...cur])
     } catch (e:any) {
       push({ msg: e?.message || 'Unexpected error', kind: 'danger' })
