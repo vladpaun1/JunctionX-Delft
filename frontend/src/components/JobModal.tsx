@@ -10,32 +10,64 @@ export default function JobModal({
     window.addEventListener('keydown', onEsc); return () => window.removeEventListener('keydown', onEsc)
   }, [onClose])
 
-  const esc = (s: string) => s.replace(/[<>&"']/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'} as any)[m])
 
   const transcriptHtml = useMemo(() => {
     if (!meta) return ''
-    const flags = data?.flags
+
+    // in case backend returns flags as an object keyed by index
+    const flagsRaw = data?.flags as any
+    const flags: any[] = Array.isArray(flagsRaw)
+      ? flagsRaw
+      : (flagsRaw && typeof flagsRaw === 'object' ? Object.values(flagsRaw) : [])
+
     const labels = Array.isArray(meta.labels) ? meta.labels : null
     const txt = data?.transcript_text || meta?.full_text || ''
-    if (flags && flags.length) {
+
+    const labelClass = (label?: string) => {
+      const l = String(label || '').toLowerCase()
+      if (l.includes('abuse') || l.includes('terror')) return 'lbl-abuse'
+      if (l.includes('hate')) return 'lbl-hate'
+      return 'lbl-bad'
+    }
+    const isSkip = (label?: string) => String(label || '').toLowerCase().includes('skip')
+    const esc = (s: string) =>
+      s.replace(/[<>&"']/g, m => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'} as any)[m])
+
+    if (flags.length) {
       return flags.map((f) => {
-        const isSkip = String(f.label || '').toLowerCase().includes('skip')
-        const cls = isSkip ? 'plain' : 'flagged'
-        return `<span class="${cls}" data-label="${esc(f.label || '')}" data-start="${f.start_sec}" data-end="${f.end_sec}">${esc(f.text || '')}</span><span> </span>`
+        const lbl = f.label ?? f.type ?? ''
+        const start = f.start_sec ?? f.start ?? ''
+        const end   = f.end_sec ?? f.end ?? ''
+        if (isSkip(lbl)) {
+          return `<span class="plain" data-start="${start}" data-end="${end}">${esc(f.text || '')}</span><span> </span>`
+        }
+        const cls = `flagged ${labelClass(lbl)}`
+        return `<span class="${cls}" data-label="${esc(lbl)}" data-start="${start}" data-end="${end}" tabindex="0"
+                 title="${esc(lbl)} • ${mmss(Number(start))}–${mmss(Number(end))}">
+                  ${esc(f.text || '')}
+                </span><span> </span>`
       }).join('')
-    } else if (labels && labels.length) {
+    }
+
+    if (labels && labels.length) {
       return labels.map((row: any) => {
         let lbl, text, start, end
         if (Array.isArray(row)) [lbl, text, start, end] = row
         else ({ label: lbl, text, start, end } = row)
-        const isSkip = String(lbl || '').toLowerCase().includes('skip')
-        const cls = isSkip ? 'plain' : 'flagged'
-        return `<span class="${cls}" data-label="${esc(lbl || '')}" data-start="${start ?? ''}" data-end="${end ?? ''}">${esc(text || '')}</span><span> </span>`
+        if (isSkip(lbl)) {
+          return `<span class="plain" data-start="${start ?? ''}" data-end="${end ?? ''}">${esc(text || '')}</span><span> </span>`
+        }
+        const cls = `flagged ${labelClass(lbl)}`
+        return `<span class="${cls}" data-label="${esc(lbl || '')}" data-start="${start ?? ''}" data-end="${end ?? ''}" tabindex="0"
+                 title="${esc(lbl || '')} • ${mmss(Number(start))}–${mmss(Number(end))}">
+                  ${esc(text || '')}
+                </span><span> </span>`
       }).join('')
-    } else {
-      return esc(txt || '')
     }
+
+    return esc(txt || '')
   }, [meta, data])
+
 
   if (!meta) return null
 
