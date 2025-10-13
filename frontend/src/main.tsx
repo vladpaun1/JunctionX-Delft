@@ -9,6 +9,8 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import './assets/css/app.css'
 import './assets/css/upload.css'
 import './assets/css/job_detail.css'
+import './assets/css/toast.css'
+
 
 import App from './App'
 
