@@ -1,101 +1,147 @@
-# Backend Refactor Summary — Django → DRF API + React/Vite Integration
+# Backend Refactor — Django REST API Integration for React Frontend
 
-## Overview
-
-This refactor converts the backend into a clean Django REST Framework (DRF) API,
-preparing it for a React + Vite + TypeScript frontend.  
-The previous Django‐template views and ad-hoc API endpoints were consolidated into
-modern DRF viewsets and serializers.
+This document summarizes the backend refactoring work
+that modernized the Django codebase to cleanly support
+a standalone React/Vite frontend.
 
 ---
 
-## Main Changes
+## 🧭 Overview
 
-### 🧩 Architecture
+The backend still uses **Django 5.2 + Django REST Framework (DRF)**,  
+but its role has shifted from serving HTML templates to
+providing a clean, versioned JSON API.
 
-- **API Layer**
-  - Replaced legacy `APIView` classes (`JobsView`, `JobDetailView`, etc.) with
-    a single `UploadJobViewSet` (`apps/api/viewsets.py`).
-  - Introduced DRF serializers (`apps/api/serializers.py`) to define
-    how `UploadJob` objects are converted to JSON.
-  - Added object-level permissions (`IsOwnerByPrincipal`) to enforce ownership
-    based on `request.user` or `session_key`.
-  - Moved helper logic to `apps/api/utils.py` for normalization, file paths, etc.
-  - Routing handled via DRF’s `DefaultRouter` in `apps/api/urls.py`.
-
-- **API Endpoints**
-  ```
-  GET    /api/ping/              → Health check
-  GET    /api/jobs/              → List current user's jobs (paginated)
-  POST   /api/jobs/bulk/         → Upload and enqueue multiple files
-  GET    /api/jobs/<id>/         → Job detail
-  DELETE /api/jobs/<id>/         → Delete a job and its files
-  GET    /api/jobs/<id>/data/    → JSON export for frontend display
-  GET    /api/jobs/<id>/export/  → Download transcript JSON
-  ```
-
-- **Ownership Rules**
-  - Authenticated users own jobs via `user_id`.
-  - Anonymous visitors own jobs via `session_key`.
-
-- **Background Processing**
-  - Each upload spawns a background thread running the ASR analysis pipeline.
-  - Job status fields (`PENDING`, `RUNNING`, `SUCCESS`, `FAILED`) update in place.
-
-### 🗂 Django Configuration
-
-- `apps/web` kept only as a data/domain app (models, management commands, etc.).
-  Old templates and JS removed.
-- `core/urls.py`:
-  - Now includes only `api/` and `admin/` routes.
-  - Adds a production catch-all route serving `frontend/dist/index.html` for the SPA.
-- `settings.py`:
-  - Added `frontend/dist` to `TEMPLATES` for the built React app.
-  - Added `frontend/dist/assets` to `STATICFILES_DIRS`.
-  - Enabled `django-cors-headers` for local development (`CORS_ALLOW_ALL_ORIGINS=True`).
-  - Retained DRF + Spectacular for schema/docs.
-
-### 🧹 Cleanup
-
-- Removed redundant endpoints and duplicate logic.
-- Deleted obsolete `apps/web/urls.py` entries.
-- Removed old JS/CSS templates once React build takes over.
-- Simplified `apps/api/views.py` to only include lightweight utilities
-  like `PingView` (and optional `ASRHealthView`).
+All UI rendering logic, templates, and JavaScript files
+from `apps/web` were removed or replaced.
 
 ---
 
-## Development Notes
+## 🧩 Key Architecture Changes
 
-- Local dev uses **Vite proxy** (`/api/* → http://localhost:8000`).
-- `CORS_ALLOW_ALL_ORIGINS=True` only for dev; restrict in production.
-- Run schema/docs locally at:
-  ```
-  /api/schema/  – raw OpenAPI schema (JSON)
-  /api/docs/    – Swagger UI
-  ```
+### 1. Unified API Layer
 
----
+- Introduced a single **`UploadJobViewSet`** (`apps/api/viewsets.py`)
+  that consolidates:
+  - listing, retrieving, deleting jobs  
+  - enqueuing multiple uploads  
+  - exporting and retrieving transcripts
 
-## Stack Summary
+- Added `apps/api/serializers.py` for clean DRF serialization.
 
-| Component | Purpose |
-|------------|----------|
-| **Django** | Web framework & ORM |
-| **Django REST Framework (DRF)** | JSON API serialization, routing, permissions |
-| **drf-spectacular** | Auto-generated OpenAPI schema & Swagger docs |
-| **django-cors-headers** | Enables cross-origin API calls from Vite dev server |
-| **Vite + React + TypeScript** | SPA frontend (built into `/frontend/dist/`) |
+- Object-level permissions handled by
+  `IsOwnerByPrincipal`, which maps ownership to either:
+  - `request.user` (authenticated)
+  - `session_key` (anonymous browser sessions)
 
 ---
 
-## Next Steps
+### 2. Updated API Endpoints
 
-1. Implement React frontend using `/api` endpoints.
-2. Add token or session authentication if needed.
-3. Replace `CORS_ALLOW_ALL_ORIGINS` with explicit `CORS_ALLOWED_ORIGINS` for prod.
-4. Optionally containerize backend + frontend via Docker.
+| Method | Endpoint | Purpose |
+|--------|-----------|----------|
+| `GET` | `/api/ping/` | Health check |
+| `GET` | `/api/jobs/` | List user/session jobs |
+| `POST` | `/api/jobs/bulk/` | Upload & enqueue multiple files |
+| `GET` | `/api/jobs/<uuid>/` | Retrieve job details |
+| `DELETE` | `/api/jobs/<uuid>/` | Delete job and associated files |
+| `GET` | `/api/jobs/<uuid>/data/` | Return transcript JSON for display |
+| `GET` | `/api/jobs/<uuid>/export/` | Download JSON export |
+| `GET` | `/api/reset-session/` | Flush session + delete all owned jobs/files |
 
 ---
 
-_Refactor by Vlad Păun, October 2025_
+### 3. Background Processing
+
+Each upload is analyzed asynchronously in a background thread:
+- Input normalization → transcription (Vosk/Whisper) → labeling.
+- Progress tracked via `UploadJob.status` (`PENDING`, `RUNNING`, `SUCCESS`, `FAILED`).
+- Results and metadata persisted in the database.
+
+---
+
+### 4. File Cleanup
+
+When a job is deleted (via API or reset-session):
+- The original upload (in `/media/uploads/`)
+- The normalized audio (in `/media/normalized/`)
+- The transcript JSON (in `/media/transcripts/<id>.json`)
+are all deleted best-effort via `_safe_rm()`.
+
+This ensures no orphaned files remain after deletions.
+
+---
+
+### 5. Simplified Django URLs
+
+**Old:**
+```
+core/urls.py → included web.urls + api.urls
+apps/web/urls.py → mixed templates and APIs
+```
+
+**New:**
+```
+core/urls.py → only admin + /api/
+apps/api/urls.py → DRF router + standalone APIViews
+```
+
+No templates are served by Django anymore.  
+In production, the React build in `frontend/dist/`
+will serve as the web entry point.
+
+---
+
+### 6. Session Reset Endpoint
+
+`ResetSessionView` allows anonymous users to:
+- Clear their Django session,
+- Delete all their jobs,
+- Remove any uploaded or generated files.
+
+This is useful for local demos or shared environments.
+
+---
+
+## 🗂️ Files and Modules
+
+| Path | Purpose |
+|------|----------|
+| `apps/api/viewsets.py` | Core REST endpoints for jobs |
+| `apps/api/serializers.py` | DRF serialization for UploadJob |
+| `apps/api/utils.py` | Shared helpers for file paths and ownership |
+| `apps/api/views.py` | Simple APIViews (Ping, ResetSession) |
+| `apps/web/models.py` | Contains the UploadJob model |
+| `core/urls.py` | Global routing (admin + api) |
+
+---
+
+## 🧹 Cleanup Work
+
+- Removed all template rendering (UploadView, JobDetailPage).
+- Deleted legacy JS (upload_bulk.js, job_detail.js, etc.).
+- Removed `apps/web/templates/` and `static/` directories.
+- DRF now handles all data serialization and validation.
+- Added `django-cors-headers` for proxy compatibility with Vite.
+- Added `frontend/dist` to `STATICFILES_DIRS` for production builds.
+
+---
+
+## ⚙️ Development & Testing
+
+- **Dev:** Django runs on port 8000; React dev server proxies `/api/*` calls.
+- **Test:** You can use DRF’s built-in API browser or Swagger docs at `/api/docs/`.
+- **Session-based ownership:** Jobs persist across page reloads until `reset-session`.
+
+---
+
+## 🔮 Future Steps
+
+- Add token or cookie authentication for persistent accounts.
+- Implement proper job pagination and filtering.
+- Add background job queue (Celery/RQ) instead of threads for scalability.
+- Migrate media cleanup to async tasks.
+
+---
+
+_Refactor implemented by **Vlad Păun**, October 2025._
