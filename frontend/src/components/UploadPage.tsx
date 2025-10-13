@@ -1,3 +1,4 @@
+// frontend/src/components/UploadPage.tsx
 import { useEffect, useState } from 'react'
 import ThemeToggle from './ThemeToggle'
 import JobsTable from './JobsTable'
@@ -5,8 +6,8 @@ import JobModal from './JobModal'
 import ToastArea from './Toasts'
 import { useToasts } from '../hooks/useToasts'
 import type { JobListItem, JobDetail, JobDataPayload } from '../lib/types'
-import { listJobs, bulkCreate, getJob, getJobData } from '../lib/api'
-import { resetSession } from '../lib/api'
+import { listJobs, bulkCreate, getJob, getJobData, resetSession } from '../lib/api'
+import { copyToClipboard, pretty, isoStamp, downloadBlob } from '../lib/utils'
 
 export default function UploadPage() {
   const { toasts, push, remove } = useToasts()
@@ -20,9 +21,7 @@ export default function UploadPage() {
   const refreshRow = (id: string, patch: Partial<JobListItem>) => {
     setJobs(cur => cur.map(j => j.id === id ? { ...j, ...patch } : j))
   }
-
-  const removeRow = (id: string) =>
-    setJobs(prev => prev.filter(j => j.id !== id))
+  const removeRow = (id: string) => setJobs(prev => prev.filter(j => j.id !== id))
 
   useEffect(() => {
     (async () => {
@@ -42,21 +41,8 @@ export default function UploadPage() {
     push({ msg: 'Selection cleared.', kind: 'info', ms: 2000 })
   }
 
-  const onResetSession = async () => {
-  try {
-    await resetSession()
-    setJobs([])             // clear UI immediately
-    setFiles([])
-    const el = document.getElementById('files') as HTMLInputElement | null
-    if (el) el.value = ''
-    push({ msg: 'Session reset.', kind: 'info', ms: 2500 })
-  } catch (e: any) {
-    push({ msg: e?.message || 'Failed to reset session', kind: 'danger' })
-  }
-}
-
   const onAnalyze = async () => {
-    if (!files.length) { push({ msg: 'Please choose one or more audio/video files.', kind: 'danger' }); return }
+    if (!files.length) { push({ msg: 'Please choose one or more audio/video files.', kind: 'danger', ms: 2500 }); return }
     setBusy(true)
     try {
       const created = await bulkCreate(files)
@@ -84,6 +70,52 @@ export default function UploadPage() {
       setModalMeta(meta); setModalData(data)
     } catch {
       push({ msg: 'Failed to load job details', kind: 'danger' })
+    }
+  }
+
+  const onResetSession = async () => {
+    try {
+      await resetSession()
+      setJobs([])
+      setFiles([])
+      const el = document.getElementById('files') as HTMLInputElement | null
+      if (el) el.value = ''
+      push({ msg: 'Session reset.', kind: 'info', ms: 2500 })
+    } catch (e: any) {
+      push({ msg: e?.message || 'Failed to reset session', kind: 'danger' })
+    }
+  }
+
+  const copyAllJson = async () => {
+    try {
+      const success = jobs.filter(j => j.status === 'SUCCESS')
+      if (!success.length) { push({ msg: 'No finished jobs to copy.', kind: 'info', ms: 2500 }); return }
+      const payloads = []
+      for (const j of success) {
+        try { payloads.push(await getJobData(j.id)) } catch { /* skip */ }
+      }
+      if (!payloads.length) { push({ msg: 'No finished jobs to copy.', kind: 'info', ms: 2500 }); return }
+      const ok = await copyToClipboard(pretty(payloads))
+      push({ msg: ok ? `Copied ${payloads.length} item(s).` : 'Copy failed.', kind: ok ? 'info' : 'danger', ms: 2500 })
+    } catch {
+      push({ msg: 'Copy failed.', kind: 'danger' })
+    }
+  }
+
+  const exportAllJson = async () => {
+    try {
+      const success = jobs.filter(j => j.status === 'SUCCESS')
+      if (!success.length) { push({ msg: 'No finished jobs to export.', kind: 'info', ms: 2500 }); return }
+      const payloads = []
+      for (const j of success) {
+        try { payloads.push(await getJobData(j.id)) } catch { /* skip */ }
+      }
+      if (!payloads.length) { push({ msg: 'No finished jobs to export.', kind: 'info', ms: 2500 }); return }
+      const fname = `session-transcripts-${isoStamp()}.json`
+      downloadBlob(fname, pretty(payloads))
+      push({ msg: `Exported ${payloads.length} item(s) as ${fname}.`, kind: 'info', ms: 3000 })
+    } catch {
+      push({ msg: 'Export failed.', kind: 'danger' })
     }
   }
 
@@ -115,12 +147,13 @@ export default function UploadPage() {
                     <span className="btn-label">{busy ? 'Uploading…' : 'Analyze selected'}</span>
                     {busy && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true" />}
                   </button>
-                  <button className="btn btn-outline-secondary" type="button" onClick={onResetSession}>
-                    Reset session
-                  </button>
+
+                  <button className="btn btn-outline-secondary" type="button" onClick={onResetSession}>Reset session</button>
 
                   <div className="vr d-none d-sm-block" />
-                  {/* …(Copy All / Export All can go here later)… */}
+
+                  <button className="btn btn-sm btn-outline-secondary" type="button" onClick={copyAllJson}>Copy all JSON</button>
+                  <button className="btn btn-sm btn-outline-secondary" type="button" onClick={exportAllJson}>Export all JSON</button>
                 </div>
               </form>
 
@@ -129,7 +162,7 @@ export default function UploadPage() {
               <JobsTable
                 jobs={jobs}
                 onView={openModal}
-                onError={(m) => push({ msg: m, kind: 'danger' })}
+                onError={(m) => push({ msg: m, kind: 'danger', ms: 2500 })}
                 refreshRow={refreshRow}
                 onRemove={removeRow}
               />

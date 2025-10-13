@@ -182,3 +182,73 @@ td.action-cell { text-align: center; }
   justify-content: center;
   gap: .5rem;
 }
+
+
+/* --- Column sizing via colgroup for stable layout --- */
+#jobs-table {
+  table-layout: fixed;
+  width: 100%;
+}
+#jobs-table col.col-file   { width: 44%; }
+#jobs-table col.col-size   { width: 12%; }
+#jobs-table col.col-status { width: 12%; }
+#jobs-table col.col-action { width: 32%; }
+
+/* Center all headers cleanly */
+#jobs-table thead th {
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bs-body-bg, #fff);
+  box-shadow: 0 2px 0 rgba(0,0,0,.03);
+  white-space: nowrap;
+}
+
+/* Cells alignment + truncation */
+#jobs-table td,
+#jobs-table th { vertical-align: middle; }
+
+#jobs-table td.file-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#jobs-table td.size-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Status stays compact and centered */
+#jobs-table td.status-cell .badge {
+  font-weight: 600;
+}
+
+/* Action buttons: wrap nicely and stay centered */
+.action-cell .action-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* Prevent buttons from stretching or breaking lines awkwardly */
+.action-cell .btn {
+  white-space: nowrap;
+}
+
+/* Responsive tweaks */
+@media (max-width: 992px){
+  #jobs-table col.col-file   { width: 46%; }
+  #jobs-table col.col-size   { width: 14%; }
+  #jobs-table col.col-status { width: 14%; }
+  #jobs-table col.col-action { width: 26%; }
+}
+@media (max-width: 576px){
+  /* Let table breathe on phones */
+  #jobs-table { table-layout: auto; }
+  #jobs-table thead th { font-size: .9rem; }
+  .action-cell .btn { padding-inline: .5rem; }
+}

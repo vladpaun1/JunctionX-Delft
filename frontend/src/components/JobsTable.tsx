@@ -1,7 +1,8 @@
+// frontend/src/components/JobsTable.tsx
 import { useEffect, useMemo, useRef } from 'react'
 import type { JobListItem } from '../lib/types'
-import { fmtBytes } from '../lib/utils'
-import { getJob, deleteJob } from '../lib/api'
+import { fmtBytes, pretty, copyToClipboard } from '../lib/utils'
+import { getJob, getJobData, deleteJob } from '../lib/api'
 import { cache } from '../lib/cache'
 
 export default function JobsTable({
@@ -34,9 +35,7 @@ export default function JobsTable({
           } else {
             refreshRow(id, { status: data.status as any })
           }
-        } catch {
-          /* ignore transient poll errors */
-        }
+        } catch {/* ignore */}
       }, 1200)
       polling.current.set(id, iv)
     }
@@ -46,68 +45,88 @@ export default function JobsTable({
     return () => { polling.current.forEach(clearInterval); polling.current.clear() }
   }, [jobs, onError, refreshRow])
 
-
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteJob(id)               // server delete
-      onRemove(id)                      // remove from UI
-    } catch (e: any) {
-      onError(e?.message || 'Delete failed')
-    }
-  }
-
   const rows = useMemo(() => {
     return jobs.map(j => {
       const size = j.src_size ?? cache.getSize(j.id)
       const statusBadge =
-        j.status === 'SUCCESS' ? <span className="badge bg-success">SUCCESS</span> :
-        j.status === 'FAILED'  ? <span className="badge bg-danger">FAILED</span> :
-        j.status === 'RUNNING' ? <span className="badge bg-secondary">RUNNING</span> :
-        <span className="badge text-bg-secondary">{j.status ?? 'PENDING'}</span>
+        j.status === 'SUCCESS' ? <span className="badge rounded-pill bg-success">SUCCESS</span> :
+        j.status === 'FAILED'  ? <span className="badge rounded-pill bg-danger">FAILED</span> :
+        j.status === 'RUNNING' ? <span className="badge rounded-pill bg-secondary">RUNNING</span> :
+        <span className="badge rounded-pill text-bg-secondary">{j.status ?? 'PENDING'}</span>
 
       const actions =
         j.status === 'SUCCESS' ? (
-          <div className="action-row">
+          <div className="action-row justify-content-center">
             <button className="btn btn-outline-primary btn-sm" onClick={() => onView(j.id)}>Details</button>
+            <button
+              className="btn btn-outline-secondary btn-sm"
+              onClick={async () => {
+                try {
+                  const payload = await getJobData(j.id)
+                  const ok = await copyToClipboard(pretty(payload))
+                  if (!ok) onError('Copy failed')
+                } catch (e:any) {
+                  onError(e?.message || 'Copy failed')
+                }
+              }}
+            >
+              Copy JSON
+            </button>
             <a className="btn btn-outline-secondary btn-sm" href={`/api/jobs/${j.id}/export/`} download>Export JSON</a>
-            <button className="btn btn-outline-danger btn-sm" onClick={() => handleDelete(j.id)}>Delete</button>
+            <button className="btn btn-outline-danger btn-sm" onClick={async () => {
+              try {
+                await deleteJob(j.id)
+                onRemove(j.id)
+              } catch (e:any) {
+                onError(e?.message || 'Delete failed')
+              }
+            }}>Delete</button>
           </div>
         ) : j.status === 'FAILED' ? (
-          <div className="action-row">
+          <div className="action-row justify-content-center">
             <button className="btn btn-outline-danger btn-sm" disabled>Failed</button>
-            <button className="btn btn-outline-secondary btn-sm" onClick={() => handleDelete(j.id)}>Delete</button>
+            <button className="btn btn-outline-secondary btn-sm" onClick={async () => {
+              try {
+                await deleteJob(j.id)
+                onRemove(j.id)
+              } catch (e:any) {
+                onError(e?.message || 'Delete failed')
+              }
+            }}>Delete</button>
           </div>
         ) : (
-          <div className="action-row"><span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" /></div>
+          <div className="action-row justify-content-center">
+            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+          </div>
         )
 
       return (
         <tr key={j.id}>
-          <td>{j.filename || ''}</td>
-          <td className="size-cell">{fmtBytes(size ?? null)}</td>
-          <td className="status">{statusBadge}</td>
-          <td className="action-cell">{actions}</td>
+          <td className="file-cell text-truncate">{j.filename || ''}</td>
+          <td className="size-cell text-end">{fmtBytes(size ?? null)}</td>
+          <td className="status-cell text-center">{statusBadge}</td>
+          <td className="action-cell text-center">{actions}</td>
         </tr>
       )
     })
-  }, [jobs, onView, onError, refreshRow])
+  }, [jobs, onView, onError, refreshRow, onRemove])
 
   return (
     <div className="table-shell">
       <div className="table-responsive table-scroll">
         <table className="table align-middle mb-0" id="jobs-table">
           <colgroup>
-            <col style={{ width: '40%' }} />
-            <col style={{ width: '12%' }} />
-            <col style={{ width: '10%' }} />
-            <col style={{ width: '38%' }} />
+            <col className="col-file" />
+            <col className="col-size" />
+            <col className="col-status" />
+            <col className="col-action" />
           </colgroup>
           <thead className="table-head">
             <tr>
-              <th>File</th>
-              <th>Size</th>
-              <th>Status</th>
-              <th className="text-end">Action</th>
+              <th className="text-center">File</th>
+              <th className="text-center">Size</th>
+              <th className="text-center">Status</th>
+              <th className="text-center">Action</th>
             </tr>
           </thead>
           <tbody>{rows}</tbody>
