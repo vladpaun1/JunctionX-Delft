@@ -2,13 +2,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .viewsets import UploadJobViewSet
-from .views import ResetSessionView, PingView
+from .views import PingView, ResetSessionView
 
 router = DefaultRouter()
-router.register(r"jobs", UploadJobViewSet, basename="jobs")
+router.register(r"jobs", UploadJobViewSet, basename="uploadjob")
 
 urlpatterns = [
+    path("ping/", PingView.as_view(), name="api-ping"),
+    path("reset-session/", ResetSessionView.as_view(), name="api-reset-session"),
     path("", include(router.urls)),
-    path("ping/", PingView.as_view(), name="ping"),
-    path("reset-session/", ResetSessionView.as_view(), name="reset_session"),  # NEW
 ]
