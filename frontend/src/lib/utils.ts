@@ -1,4 +1,3 @@
-// frontend/src/lib/utils.ts
 export const fmtBytes = (n?: number | null) => {
   const x = Number(n ?? 0)
   if (!isFinite(x) || x <= 0) return '—'
@@ -18,35 +17,31 @@ export const mmss = (sec?: number | null) => {
 
 export const pretty = (obj: unknown) => JSON.stringify(obj, null, 2)
 
-export const isoStamp = () => {
-  const d = new Date(), p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
-}
-
 export async function copyToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text)
     return true
   } catch {
-    // fallback
-    const ta = document.createElement('textarea')
-    ta.value = text
-    document.body.appendChild(ta)
-    ta.select()
-    const ok = document.execCommand('copy')
-    ta.remove()
-    return ok
+    const el = document.createElement('textarea')
+    el.value = text; document.body.appendChild(el); el.select()
+    try { document.execCommand('copy'); return true } catch { return false }
+    finally { document.body.removeChild(el) }
   }
 }
 
-export function downloadBlob(filename: string, dataStr: string, mime = 'application/json;charset=utf-8') {
-  const blob = new Blob([dataStr], { type: mime })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+const KEY = 'ub:sizes:v2'
+const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}') } catch { return {} } }
+const write = (o: any) => { try { localStorage.setItem(KEY, JSON.stringify(o)) } catch {} }
+
+export const cache = {
+  getSize(id: string): number | null {
+    const m = read(); const v = m[id]
+    return Number.isFinite(v) && v > 0 ? v : null
+  },
+  setSize(id: string, bytes: number) {
+    const n = Number(bytes); if (!Number.isFinite(n) || n <= 0) return
+    const m = read(); if (m[id] === n) return; m[id] = n; write(m)
+  },
+  remove(id: string) { const m = read(); if (id in m) { delete m[id]; write(m) } },
+  clear() { localStorage.removeItem(KEY) }
 }

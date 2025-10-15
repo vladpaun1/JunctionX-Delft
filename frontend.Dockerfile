@@ -1,14 +1,8 @@
 # frontend.Dockerfile
 FROM node:20-alpine
 
-# Upgrade npm inside the image so every container has npm 11+
 RUN npm install -g npm@latest
-
-# Dev working directory for Vite app
 WORKDIR /app/frontend
 
-# We do installs at runtime so mounted code always matches dependencies
-# The named volume keeps node_modules persistent between runs
-
-# Default command: install if needed, then start Vite dev server
-CMD ["sh", "-lc", "test -d node_modules || npm ci || npm install; npm run dev -- --host 0.0.0.0 --port 5173"]
+# If node_modules doesn't exist OR is empty, install deps, then start dev
+CMD ["sh", "-lc", "if [ ! -d node_modules ] || [ -z \"$(ls -A node_modules 2>/dev/null)\" ]; then npm ci || npm install; fi; npm run dev -- --host 0.0.0.0 --port 5173"]
