@@ -1,183 +1,250 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-type Flag = {
-  label: string;
-  text: string;
-  start_sec: number;
-  end_sec: number;
+/* ===== Types ===== */
+type Flag = { label?: string; text?: string; start_sec?: number; end_sec?: number };
+export type JobDetail = {
+  id: string;
+  original_name?: string | null;
+  stored_name?: string | null;
+  full_text?: string | null;
+  labels?: any[] | null;
 };
-type JobDataPayload = {
+export type JobDataPayload = {
   job_id: string;
   filename: string;
   transcript_text: string;
   flags: Flag[];
 };
-type Job = { id: string; filename: string };
 
-function esc(s: string) {
-  return s.replace(/[<>&"']/g, (m) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" } as any)[m]);
-}
+/* ===== Small helpers ===== */
 const mmss = (sec?: number | null) => {
-  if (sec == null || !isFinite(sec as any)) return "00:00";
-  const s = Math.max(0, Math.floor(Number(sec)));
-  const m = String(Math.floor(s / 60)).padStart(2, "0");
-  const t = String(Math.floor(s % 60)).padStart(2, "0");
+  if (sec == null || !isFinite(sec)) return "00:00";
+  const s = Math.max(0, Math.floor(sec));
+  const m = Math.floor(s / 60).toString().padStart(2, "0");
+  const t = Math.floor(s % 60).toString().padStart(2, "0");
   return `${m}:${t}`;
 };
+const esc = (s: string) =>
+  s.replace(/[<>&"']/g, (m) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" } as any)[m]);
 
+const classFor = (label?: string) => {
+  const l = (label || "").toLowerCase();
+  if (l.includes("hate")) return "lbl-hate";
+  if (l.includes("abuse")) return "lbl-abuse";
+  if (l.includes("bad")) return "lbl-bad";
+  if (l.includes("skip")) return "plain";
+  return "flagged";
+};
+
+function normalizeLabels(input: any[] | null | undefined): Flag[] {
+  if (!Array.isArray(input)) return [];
+  const out: Flag[] = [];
+  for (const row of input) {
+    if (Array.isArray(row)) {
+      const [label, text, start, end] = row;
+      out.push({
+        label: String(label ?? ""),
+        text: String(text ?? ""),
+        start_sec: start != null ? Number(start) : 0,
+        end_sec: end != null ? Number(end) : 0,
+      });
+    } else if (row && typeof row === "object") {
+      out.push({
+        label: row.label ?? row.type ?? "flag",
+        text: row.text ?? row.span ?? "",
+        start_sec: Number(row.start_sec ?? row.start ?? 0),
+        end_sec: Number(row.end_sec ?? row.end ?? 0),
+      });
+    }
+  }
+  return out;
+}
+
+/* ===== Component ===== */
 export default function JobDrawer({
-  job,
-  load,
+  open,
+  job,                 // { id, filename }
+  load,                // (id) => Promise<{meta, data}>
   onClose,
 }: {
-  job: Job | null;
-  load: (id: string) => Promise<JobDataPayload>;
+  open: boolean;
+  job: { id: string; filename: string } | null;
+  load: (id: string) => Promise<{ meta: JobDetail; data: JobDataPayload }>;
   onClose: () => void;
 }) {
+  const [meta, setMeta] = useState<JobDetail | null>(null);
   const [data, setData] = useState<JobDataPayload | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const gutterRef = useRef<HTMLDivElement | null>(null);
-  const tipRef = useRef<HTMLDivElement | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  // fetch on open
+  // DOM refs
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const gutterRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  // Load when opened for a given job id
   useEffect(() => {
-    if (!job) return;
-    setLoading(true); setErr(null); setData(null);
+    if (!open || !job) return;
+    setBusy(true);
+    setMeta(null);
+    setData(null);
     load(job.id)
-      .then(setData)
-      .catch((e) => setErr(e?.message || "Failed to load"))
-      .finally(() => setLoading(false));
-  }, [job, load]);
+      .then(({ meta, data }) => {
+        setMeta(meta);
+        setData(data);
+      })
+      .finally(() => setBusy(false));
+  }, [open, job, load]);
 
-  // build transcript HTML: prefer flags if present
   const transcriptHtml = useMemo(() => {
-    if (!data) return "";
-    const flags = Array.isArray(data.flags) ? data.flags : [];
-    const txt = data.transcript_text || "";
+    if (!meta) return "";
+    const flags: Flag[] =
+      (data?.flags && data.flags.length ? data.flags : []) ||
+      normalizeLabels(meta.labels || []);
+    const txt = data?.transcript_text || meta?.full_text || "";
 
     if (flags.length) {
       return flags
         .map((f) => {
-          const cls = /skip/i.test(f.label) ? "plain" : "flagged";
-          return `<span class="${cls}" data-label="${esc(f.label)}" data-start="${f.start_sec}" data-end="${f.end_sec}">${esc(
-            f.text || ""
-          )}</span><span> </span>`;
+          const cls = classFor(f.label);
+          const label = esc(f.label || "");
+          const text = esc(f.text || "");
+          const s = Number.isFinite(f.start_sec) ? String(f.start_sec) : "";
+          const e = Number.isFinite(f.end_sec) ? String(f.end_sec) : "";
+          return `<span class="${cls}" data-label="${label}" data-start="${s}" data-end="${e}">${text}</span><span> </span>`;
         })
         .join("");
     }
-    // fallback: plain text
     return esc(txt);
-  }, [data]);
+  }, [meta, data]);
 
-  // hover tooltips for timestamps
+  // Hover tooltip for flagged spans
   useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const tip = tipRef.current!;
-    const onOver = (e: MouseEvent) => {
+    if (!open) return;
+    const root = bodyRef.current;
+    if (!root) return;
+    const tip = document.createElement("div");
+    tip.className = "flag-fly";
+    tip.style.position = "absolute";
+    tip.style.visibility = "hidden";
+    root.appendChild(tip);
+
+    function show(e: MouseEvent) {
       const t = e.target as HTMLElement;
-      if (!(t instanceof HTMLElement)) return;
-      if (t.tagName !== "SPAN") {
-        tip.style.display = "none";
-        return;
-      }
-      const label = t.getAttribute("data-label");
+      if (!t || !t.classList.contains("flagged")) return;
+      const label = t.getAttribute("data-label") || "flag";
       const start = Number(t.getAttribute("data-start") || "0");
       const end = Number(t.getAttribute("data-end") || "0");
-      if (!label && !start && !end) {
-        tip.style.display = "none";
-        return;
-      }
-      tip.innerHTML = `
-        <div><strong>${esc(label || "Span")}</strong></div>
-        <div>${mmss(start)} – ${mmss(end)}</div>
-      `;
-      tip.className = `flag-fly ${labelClass(label)}`;
-      tip.style.display = "block";
-      tip.style.left = Math.min(window.innerWidth - 220, e.pageX + 14) + "px";
-      tip.style.top = e.pageY + 10 + "px";
-    };
-    const onOut = () => { tip.style.display = "none"; };
-    el.addEventListener("mousemove", onOver);
-    el.addEventListener("mouseleave", onOut);
-    return () => {
-      el.removeEventListener("mousemove", onOver);
-      el.removeEventListener("mouseleave", onOut);
-    };
-  }, [transcriptHtml]);
-
-  // left gutter: render a tick roughly every 5 spans with the span's start time
-  useEffect(() => {
-    const gutter = gutterRef.current;
-    const host = wrapRef.current;
-    if (!gutter || !host) return;
-    gutter.innerHTML = "";
-    const spans = Array.from(host.querySelectorAll("span"));
-    if (!spans.length) return;
-    const step = 5;
-    for (let i = 0; i < spans.length; i += step) {
-      const s = spans[i] as HTMLElement;
-      const sec = Number(s.getAttribute("data-start") || "0");
-      const div = document.createElement("div");
-      div.className = "tick";
-      div.textContent = mmss(sec);
-      gutter.appendChild(div);
+      tip.textContent = `${label} · ${mmss(start)}–${mmss(end)}`;
+      tip.className = `flag-fly ${classFor(label).replace("lbl-", "")}`;
+      const r = t.getBoundingClientRect();
+      tip.style.left = `${r.left + window.scrollX}px`;
+      tip.style.top = `${r.top + window.scrollY - 32}px`;
+      tip.style.visibility = "visible";
     }
-  }, [transcriptHtml]);
+    function hide() {
+      tip.style.visibility = "hidden";
+    }
 
-  if (!job) return null;
+    root.addEventListener("mousemove", show);
+    root.addEventListener("mouseleave", hide);
+    document.addEventListener("scroll", hide, true);
+
+    return () => {
+      root.removeEventListener("mousemove", show);
+      root.removeEventListener("mouseleave", hide);
+      document.removeEventListener("scroll", hide, true);
+      tip.remove();
+    };
+  }, [open, transcriptHtml]);
+
+  // Gutter: every 5th visual line shows the time of the first span on that line
+  useEffect(() => {
+    if (!open) return;
+    const scrollHost = wrapRef.current;
+    const gutter = gutterRef.current;
+    const transcript = bodyRef.current?.querySelector(".transcript") as HTMLElement | null;
+    if (!scrollHost || !gutter || !transcript) return;
+
+    const redraw = () => {
+      const spans = Array.from(transcript.querySelectorAll("span"));
+      gutter.innerHTML = "";
+      if (!spans.length) return;
+
+      const lines: { top: number; el: HTMLElement }[] = [];
+      let lastTop = -1;
+      for (const el of spans as HTMLElement[]) {
+        const r = el.getBoundingClientRect();
+        if (lastTop < 0 || Math.abs(r.top - lastTop) > 2) {
+          lines.push({ top: r.top, el });
+          lastTop = r.top;
+        }
+      }
+
+      lines.forEach((ln, idx) => {
+        if (idx % 5 !== 0) return;
+        const y = (ln.el as HTMLElement).offsetTop;
+        const tick = document.createElement("div");
+        tick.className = "tick";
+        tick.style.position = "absolute";
+        tick.style.left = "0";
+        tick.style.top = `${y}px`;
+        const s = Number((ln.el as HTMLElement).getAttribute("data-start") || "0");
+        tick.textContent = mmss(Number.isFinite(s) ? s : 0);
+        gutter.appendChild(tick);
+      });
+    };
+
+    const ro = new ResizeObserver(() => redraw());
+    ro.observe(transcript);
+    const iv = window.setInterval(redraw, 300);
+    redraw();
+
+    const onScroll = () => {/* no-op */};
+    scrollHost.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      ro.disconnect();
+      window.clearInterval(iv);
+      scrollHost.removeEventListener("scroll", onScroll);
+    };
+  }, [open, transcriptHtml]);
+
+  const title = meta?.original_name || meta?.stored_name || job?.filename || "Job details";
+
+  if (!open || !job) return null;
 
   return (
-    <>
-      {/* overlay */}
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" onClick={onClose} />
-
-      {/* panel */}
-      <aside className="fixed right-0 top-0 bottom-0 w-full md:w-[680px] z-50 card rounded-none md:rounded-l-2xl border-l border-white/10 overflow-hidden">
-        <header className="px-5 py-4 flex items-center justify-between border-b border-white/10">
+    <div className="fixed inset-0 z-40">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <aside
+        className="absolute top-0 right-0 h-full w-[min(720px,92vw)] card border-white/10 bg-bg-card/80 overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+      >
+        <header className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
           <div>
-            <div className="text-sm text-ink-dim">Job details</div>
-            <div className="font-medium text-ink truncate max-w-[520px]" title={job.filename}>
-              {job.filename}
-            </div>
+            <div className="text-xs text-ink-dim">Job details</div>
+            <h2 className="font-medium text-ink truncate max-w-[520px]">{busy ? "Loading…" : title}</h2>
           </div>
-          <button className="btn btn-soft" onClick={onClose}>Close</button>
+          <button className="btn btn-soft text-xs" onClick={onClose}>Close</button>
         </header>
 
-        <section className="p-5 space-y-4 overflow-y-auto h-full">
-          {loading && <div className="text-ink-dim text-sm">Loading…</div>}
-          {err && <div className="text-rose-300 text-sm">{err}</div>}
-          {data && (
-            <>
-              <div className="flex items-center gap-2">
-                <span className="badge badge-ok">Bad language</span>
-                <span className="badge badge-fail">Hate speech</span>
-                <span className="badge bg-white/5 border-white/10 text-ink">Abuse</span>
-              </div>
-
-              <div className="transcript-wrap">
-                <div ref={gutterRef} className="gutter" aria-hidden="true" />
-                <div
-                  ref={wrapRef}
-                  className="prose prose-invert max-w-none text-sm leading-6 transcript"
-                  dangerouslySetInnerHTML={{ __html: transcriptHtml }}
-                />
-                <div ref={tipRef} className="flag-fly" style={{ display: "none" }} />
-              </div>
-            </>
-          )}
-        </section>
+        <div ref={wrapRef} className="h-[calc(100%-56px)] overflow-auto p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="badge lbl-bad">Bad language</span>
+            <span className="badge lbl-hate">Hate speech</span>
+            <span className="badge lbl-abuse">Abuse</span>
+          </div>
+          <div className="transcript-wrap">
+            <div ref={gutterRef} className="gutter relative" aria-hidden="true" />
+            <div
+              ref={bodyRef}
+              className="transcript"
+              dangerouslySetInnerHTML={{ __html: transcriptHtml }}
+            />
+          </div>
+        </div>
       </aside>
-    </>
+    </div>
   );
-}
-
-function labelClass(lbl?: string | null) {
-  const s = String(lbl || "").toLowerCase();
-  if (s.includes("hate")) return "hate";
-  if (s.includes("abuse")) return "abuse";
-  if (s.includes("bad")) return "bad";
-  return "";
 }

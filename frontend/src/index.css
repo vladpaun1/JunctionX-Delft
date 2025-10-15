@@ -18,13 +18,21 @@
 .toast-danger { @apply border-rose-400/30; }
 .toast-success { @apply border-emerald-400/30; }
 
-.transcript-wrap { @apply relative pl-20 mt-4; }
-.gutter { @apply absolute left-0 top-0 w-14 text-xs text-ink-dim; }
-.gutter .tick { @apply relative px-1 py-0.5 text-ink-dim select-none; }
-.gutter .tick::after { content: ""; @apply absolute right-0 top-1/2 -translate-y-1/2 w-4 h-px bg-white/10; }
-
-.flagged { @apply underline decoration-wavy decoration-2 bg-rose-400/70 rounded-sm border-b border-rose-400/20 bg-rose-500/10; }
-/*.plain   { @apply; }*/
-.flag-fly { @apply hidden md:block absolute bg-bg-card border border-white/10 rounded-xl p-2 text-xs shadow-card; }
-
 .grid-auto { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+
+
+/* transcript hygiene */
+.transcript { white-space: normal; line-height: 1.6; word-break: break-word; }
+.plain { } /* intentionally empty but VALID */
+
+/* labels */
+.lbl-bad   { @apply bg-amber-400/20 text-amber-100 border border-amber-400/30 rounded-sm px-1; }
+.lbl-hate  { @apply bg-rose-500/20 text-rose-100  border border-rose-400/30  rounded-sm px-1; }
+.lbl-abuse { @apply bg-violet-500/20 text-violet-100 border border-violet-400/30 rounded-sm px-1; }
+.flagged   { @apply underline decoration-wavy decoration-2; }
+
+/* gutter */
+.transcript-wrap { @apply relative pl-16; }
+.gutter { @apply absolute left-0 top-0 w-12 text-[11px] text-ink-dim; }
+.gutter .tick { @apply px-1 py-[2px]; border-right: 1px solid rgba(255,255,255,.12); position: absolute; right: 0; transform: translateY(-50%); }
+
