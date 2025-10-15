@@ -31,8 +31,12 @@
 .lbl-abuse { @apply bg-violet-500/20 text-violet-100 border border-violet-400/30 rounded-sm px-1; }
 .flagged   { @apply underline decoration-wavy decoration-2; }
 
-/* gutter */
-.transcript-wrap { @apply relative pl-16; }
-.gutter { @apply absolute left-0 top-0 w-12 text-[11px] text-ink-dim; }
-.gutter .tick { @apply px-1 py-[2px]; border-right: 1px solid rgba(255,255,255,.12); position: absolute; right: 0; transform: translateY(-50%); }
+
+
+.transcript-wrap { @apply relative pl-20 mt-4; }
+.gutter { @apply absolute left-0 top-0 w-14 text-xs text-ink-dim; }
+.gutter .tick { @apply relative px-1 py-0.5 text-ink-dim select-none; }
+.gutter .tick::after { content:""; @apply absolute right-0 top-1/2 -translate-y-1/2 w-4 h-px bg-white/10; }
+
+.flag-fly { @apply hidden md:block absolute bg-bg-card border border-white/10 rounded-xl p-2 text-xs shadow-card; }
 
