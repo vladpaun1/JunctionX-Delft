@@ -1,147 +1,70 @@
-import React from "react";
+// frontend/src/components/JobsGrid.tsx
+import React, { useMemo } from 'react';
+import type { JobListItem } from '@/lib/types';
+import { fmtBytes } from '@/lib/utils';
 
-type Job = {
-  id: string;
-  filename: string;
-  status: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | string;
-  src_size?: number | null;
-  wav_size?: number | null;
-  duration_sec?: number | null;
-  error?: string | null;
+type JobsGridProps = {
+  jobs: JobListItem[];
+  onSelect: (job: JobListItem) => void;
+  onDelete: (job: JobListItem) => void;
+  onExport: (job: JobListItem) => void;
+  onCopyJson?: (job: JobListItem) => void;
 };
 
-type JobsProp =
-  | Job[]
-  | { results: Job[] }
-  | { jobs: Job[] }
-  | null
-  | undefined;
+export default function JobsGrid({ jobs, onSelect, onDelete, onExport, onCopyJson }: JobsGridProps) {
+  const cards = useMemo(() => {
+    return jobs.map((j) => {
+      const size = j.src_size ?? j.wav_size ?? null;
+      const badge =
+        j.status === 'SUCCESS' ? 'badge-ok' :
+        j.status === 'FAILED'  ? 'badge-fail' :
+        'badge-run';
 
-interface JobsGridProps {
-  jobs: JobsProp;
-  onSelect?: (job: Job) => void;
-  onDelete?: (job: Job) => void;
-  onExport?: (job: Job) => void;
-}
-
-/**
- * Normalizes jobs array regardless of API shape (flat or paginated)
- */
-function normalizeJobs(input: JobsProp): Job[] {
-  if (Array.isArray(input)) return input;
-  if (input && Array.isArray((input as any).results))
-    return (input as any).results;
-  if (input && Array.isArray((input as any).jobs)) return (input as any).jobs;
-  return [];
-}
-
-/**
- * Status badge renderer
- */
-function StatusBadge({ status }: { status: string }) {
-  const base = "badge";
-  const cls =
-    status === "SUCCESS"
-      ? `${base} badge-ok`
-      : status === "RUNNING"
-      ? `${base} badge-run`
-      : status === "FAILED"
-      ? `${base} badge-fail`
-      : `${base} bg-slate-500/20 text-slate-200 border-slate-400/30`;
-  return <span className={cls}>{status}</span>;
-}
-
-/**
- * JobsGrid – displays a responsive card grid of upload jobs
- */
-export default function JobsGrid({
-  jobs,
-  onSelect,
-  onDelete,
-  onExport,
-}: JobsGridProps) {
-  const safeJobs = normalizeJobs(jobs);
-
-  if (!safeJobs.length) {
-    return (
-      <div className="card p-10 text-center text-ink-dim flex flex-col items-center justify-center gap-2">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-10 h-10 text-ink-dim/70"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={1.5}
-          stroke="currentColor"
+      return (
+        <button
+          key={j.id}
+          className="card p-4 text-left hover:shadow-glow transition"
+          onClick={() => onSelect(j)}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M9 13h6m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5l2 2h6a2 2 0 012 2v6m-3 5v4m0 0h4m-4 0h-4"
-          />
-        </svg>
-        <p className="text-sm">
-          No jobs yet — upload audio or video files to start processing.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <section className="grid-auto">
-      {safeJobs.map((job) => (
-        <div
-          key={job.id}
-          className="card p-4 flex flex-col gap-3 transition hover:shadow-glow cursor-pointer"
-          onClick={() => onSelect?.(job)}
-        >
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium truncate text-ink">{job.filename}</h3>
-            <StatusBadge status={job.status} />
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm text-ink truncate">{j.filename}</div>
+              <div className="text-xs text-ink-dim mt-1">
+                {fmtBytes(size)} · {j.duration_sec ? `${Math.floor((j.duration_sec || 0) / 60)
+                  .toString()
+                  .padStart(2, '0')}:${Math.floor((j.duration_sec || 0) % 60)
+                  .toString()
+                  .padStart(2, '0')}` : '—'}
+              </div>
+            </div>
+            <span className={`badge ${badge}`}>{j.status}</span>
           </div>
 
-          <div className="text-xs text-ink-dim flex flex-col gap-0.5">
-            {job.src_size ? (
-              <span>
-                Size: {(job.src_size / 1024 / 1024).toFixed(2)} MB
-              </span>
-            ) : (
-              <span>Size: —</span>
-            )}
-            {job.duration_sec ? (
-              <span>
-                Duration: {(job.duration_sec / 60).toFixed(1)} min
-              </span>
-            ) : (
-              <span>Duration: —</span>
-            )}
-          </div>
+          {(j.status === 'SUCCESS' || j.status === 'FAILED') && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {onCopyJson && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); onCopyJson(j); }}
+                  className="btn btn-soft text-xs px-3 py-1"
+                  role="button"
+                >Copy JSON</span>
+              )}
+              <span
+                onClick={(e) => { e.stopPropagation(); onExport(j); }}
+                className="btn btn-soft text-xs px-3 py-1"
+                role="button"
+              >Export</span>
+              <span
+                onClick={(e) => { e.stopPropagation(); onDelete(j); }}
+                className="btn btn-danger text-xs px-3 py-1"
+                role="button"
+              >Delete</span>
+            </div>
+          )}
+        </button>
+      );
+    });
+  }, [jobs, onSelect, onDelete, onExport, onCopyJson]);
 
-          <div className="flex gap-2 mt-auto">
-            {onExport && (
-              <button
-                className="btn btn-soft flex-1 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onExport(job);
-                }}
-              >
-                Export JSON
-              </button>
-            )}
-            {onDelete && (
-              <button
-                className="btn btn-danger flex-1 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(job);
-                }}
-              >
-                Delete
-              </button>
-            )}
-          </div>
-        </div>
-      ))}
-    </section>
-  );
+  return <div className="grid-auto">{cards}</div>;
 }

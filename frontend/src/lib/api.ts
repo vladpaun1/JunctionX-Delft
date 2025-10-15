@@ -1,51 +1,54 @@
-import type { JobListItem, JobDetail, JobDataPayload } from './types'
+// frontend/src/lib/api.ts
+import type { JobListItem, JobDataPayload } from './types';
 
-const unwrapJobs = (payload: any) => {
-  if (Array.isArray(payload)) return payload;
-  if (payload && Array.isArray(payload.results)) return payload.results;
-  if (payload && Array.isArray(payload.jobs)) return payload.jobs; // our bulk/create shape
-  return [];
-};
-
-async function j<T=any>(res: Response): Promise<T> {
+async function api<T = any>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, { credentials: 'include', ...init });
   if (!res.ok) {
-    let msg = `${res.status} ${res.statusText}`
-    try { const body = await res.json(); msg = body.detail || JSON.stringify(body) } catch {}
-    throw new Error(msg)
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `${res.status} ${res.statusText}`);
   }
-  return await res.json() as T
+  // some endpoints (DELETE) return no body
+  try { return (await res.json()) as T; } catch { return {} as T; }
 }
 
-export async function listJobs(limit = 50) {
-  const res = await fetch(`/api/jobs/?limit=${limit}`, { credentials: 'include' });
-  if (!res.ok) throw new Error(`Jobs list failed: ${res.status}`);
-  const json = await res.json();
-  return unwrapJobs(json);
+// ---- Jobs
+export type JobsListResponse =
+  | { results?: JobListItem[]; count?: number }
+  | { jobs?: JobListItem[]; length?: number }
+  | JobListItem[];
+
+export function listJobs(limit = 50) {
+  return api<JobsListResponse>(`/api/jobs/?limit=${limit}`);
+}
+
+export function getJob(id: string) {
+  return api<JobListItem>(`/api/jobs/${id}/`);
 }
 
 export async function bulkCreate(files: File[]) {
-  const fd = new FormData()
-  files.forEach(f => fd.append('files', f, f.name))
-  const res = await fetch('/api/jobs/bulk/', { method:'POST', body: fd, credentials:'include' })
-  const data = await j<{jobs:any[]}>(res); return data.jobs || []
+  const fd = new FormData();
+  files.forEach((f) => fd.append('files', f));
+  return api<{ jobs: { id: string; filename: string; size?: number; error?: string }[] }>(
+    '/api/jobs/bulk/', { method: 'POST', body: fd }
+  );
 }
 
-export async function getJob(id: string): Promise<JobDetail> {
-  const res = await fetch(`/api/jobs/${id}/`, { credentials:'include' })
-  return j(res)
+export function deleteJob(id: string) {
+  // 204 no content
+  return fetch(`/api/jobs/${id}/`, { method: 'DELETE', credentials: 'include' }).then((r) => {
+    if (!r.ok && r.status !== 204) throw new Error('Delete failed');
+  });
 }
 
-export async function getJobData(id: string): Promise<JobDataPayload> {
-  const res = await fetch(`/api/jobs/${id}/data/`, { credentials:'include' })
-  return j(res)
+export function getJobData(id: string) {
+  return api<JobDataPayload>(`/api/jobs/${id}/data/`);
 }
 
-export async function deleteJob(id: string) {
-  const res = await fetch(`/api/jobs/${id}/`, { method:'DELETE', credentials:'include' })
-  if (!res.ok) throw new Error('Delete failed')
+export function exportUrl(id: string) {
+  return `/api/jobs/${id}/export/`;
 }
 
-export async function resetSession() {
-  const res = await fetch('/api/reset-session/', { credentials:'include' })
-  return j(res)
+// ---- Misc
+export function resetSession() {
+  return api<{ ok: boolean; deleted?: number }>('/api/reset-session/');
 }
