@@ -1,54 +1,58 @@
-// frontend/src/lib/api.ts
-import type { JobListItem, JobDataPayload } from './types';
+import { getCSRF } from './csrf'
+import type { JobListItem, BulkCreateResponse, JobDetail, JobDataPayload } from './types'
 
-async function api<T = any>(input: RequestInfo, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, { credentials: 'include', ...init });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || `${res.status} ${res.statusText}`);
+export async function listJobs(limit = 50): Promise<JobListItem[]> {
+  const r = await fetch(`/api/jobs/?limit=${limit}`, { credentials: 'same-origin' })
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  const data = await r.json()
+  // DRF pagination format
+  if (Array.isArray(data.results)) return data.results
+  // Legacy fallback (if any)
+  if (Array.isArray(data.jobs)) return data.jobs
+  return []
+}
+
+export async function bulkCreate(files: File[]): Promise<BulkCreateResponse['jobs']> {
+  const fd = new FormData()
+  files.forEach(f => fd.append('files', f, f.name))
+  const r = await fetch('/api/jobs/bulk/', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'X-CSRFToken': getCSRF() },
+    body: fd,
+  })
+  const ct = r.headers.get('content-type') || ''
+  const data = ct.includes('application/json') ? await r.json() : { detail: (await r.text()).slice(0, 1000) }
+  if (!r.ok) throw new Error(data?.detail || `HTTP ${r.status}`)
+  return Array.isArray(data.jobs) ? data.jobs : []
+}
+
+export async function getJob(id: string): Promise<JobDetail> {
+  const r = await fetch(`/api/jobs/${id}/`, { credentials: 'same-origin' })
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}
+
+export async function getJobData(id: string): Promise<JobDataPayload> {
+  const r = await fetch(`/api/jobs/${id}/data/`, { credentials: 'same-origin' })
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}
+
+export async function deleteJob(id: string): Promise<void> {
+  const r = await fetch(`/api/jobs/${id}/`, {
+    method: 'DELETE',
+    credentials: 'same-origin',
+    headers: { 'X-CSRFToken': getCSRF() },
+  })
+  if (r.status !== 204) {
+    const data = await r.json().catch(() => ({}))
+    throw new Error(data.detail || `Failed to delete (HTTP ${r.status})`)
   }
-  // some endpoints (DELETE) return no body
-  try { return (await res.json()) as T; } catch { return {} as T; }
 }
 
-// ---- Jobs
-export type JobsListResponse =
-  | { results?: JobListItem[]; count?: number }
-  | { jobs?: JobListItem[]; length?: number }
-  | JobListItem[];
-
-export function listJobs(limit = 50) {
-  return api<JobsListResponse>(`/api/jobs/?limit=${limit}`);
+export async function resetSession(): Promise<void> {
+  const r = await fetch('/api/reset-session/', { credentials: 'include' })
+  if (!r.ok) throw new Error('Failed to reset session')
 }
 
-export function getJob(id: string) {
-  return api<JobListItem>(`/api/jobs/${id}/`);
-}
-
-export async function bulkCreate(files: File[]) {
-  const fd = new FormData();
-  files.forEach((f) => fd.append('files', f));
-  return api<{ jobs: { id: string; filename: string; size?: number; error?: string }[] }>(
-    '/api/jobs/bulk/', { method: 'POST', body: fd }
-  );
-}
-
-export function deleteJob(id: string) {
-  // 204 no content
-  return fetch(`/api/jobs/${id}/`, { method: 'DELETE', credentials: 'include' }).then((r) => {
-    if (!r.ok && r.status !== 204) throw new Error('Delete failed');
-  });
-}
-
-export function getJobData(id: string) {
-  return api<JobDataPayload>(`/api/jobs/${id}/data/`);
-}
-
-export function exportUrl(id: string) {
-  return `/api/jobs/${id}/export/`;
-}
-
-// ---- Misc
-export function resetSession() {
-  return api<{ ok: boolean; deleted?: number }>('/api/reset-session/');
-}
