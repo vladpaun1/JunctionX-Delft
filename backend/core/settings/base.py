@@ -15,10 +15,16 @@ ENV_PATH = BASE_DIR.parent / ".env"
 if ENV_PATH.exists():
     load_dotenv(ENV_PATH)
 
+def _env(key, default=None):
+    return os.getenv(key, default)
 
-def _env_list(name: str, default: str = "") -> list[str]:
-    raw = os.getenv(name, default) or ""
-    return [item.strip() for item in raw.split(",") if item.strip()]
+def _env_bool(key, default=False):
+    v = os.getenv(key)
+    return (v or "").lower() in {"1", "true", "yes"} if v is not None else bool(default)
+
+def _env_list(key, default=""):
+    raw = os.getenv(key, default)
+    return [s.strip() for s in raw.split(",") if s.strip()]
 
 
 # ---------------------------------------------------------------------

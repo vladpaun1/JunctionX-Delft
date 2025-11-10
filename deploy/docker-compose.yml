@@ -1,33 +1,35 @@
-version: "3.9"
-
 services:
-  api:
-    image: ghcr.io/vladpaun/trash-panda-api:main
+  trash-panda-api:
+    image: ghcr.io/vladpaun-homeops/trash-panda-api:main
+    container_name: trash-panda-api
+    restart: unless-stopped
     env_file:
       - ../.env
     environment:
       DJANGO_SETTINGS_MODULE: core.settings.prod
       VOSK_MODEL_DIR: /models
     depends_on:
-      - db
-      - redis
+      - trash-panda-db
+      - trash-panda-redis
     volumes:
-      - media:/app/media
-      - whisper_models:/models
+      - trash-panda-media:/app/media
+      - trash-panda-whisper:/models
     networks:
-      - appnet
+      - trash-panda-appnet
       - edge
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.trashpanda-api.rule=Host(`${API_HOST}`)"
-      - "traefik.http.routers.trashpanda-api.entrypoints=websecure"
-      - "traefik.http.routers.trashpanda-api.tls.certresolver=${TRAEFIK_CERTRESOLVER}"
-      - "traefik.http.routers.trashpanda-api.middlewares=trashpanda-buffer@docker"
-      - "traefik.http.middlewares.trashpanda-buffer.buffering.maxRequestBodyBytes=104857600"
-      - "traefik.http.middlewares.trashpanda-buffer.buffering.memRequestBodyBytes=20971520"
+      - "traefik.http.routers.trash-panda-api.rule=Host(`${API_HOST}`)"
+      - "traefik.http.routers.trash-panda-api.entrypoints=websecure"
+      - "traefik.http.routers.trash-panda-api.tls.certresolver=${TRAEFIK_CERTRESOLVER}"
+      - "traefik.http.routers.trash-panda-api.middlewares=trash-panda-buffer@docker"
+      - "traefik.http.middlewares.trash-panda-buffer.buffering.maxRequestBodyBytes=104857600"
+      - "traefik.http.middlewares.trash-panda-buffer.buffering.memRequestBodyBytes=20971520"
 
-  worker:
+  trash-panda-worker:
     image: ghcr.io/vladpaun/trash-panda-api:main
+    container_name: trash-panda-worker
+    restart: unless-stopped
     env_file:
       - ../.env
     environment:
@@ -35,45 +37,51 @@ services:
       VOSK_MODEL_DIR: /models
     command: celery -A core worker -l info
     depends_on:
-      - redis
+      - trash-panda-redis
     volumes:
-      - media:/app/media
-      - whisper_models:/models
+      - trash-panda-media:/app/media
+      - trash-panda-whisper:/models
     networks:
-      - appnet
+      - trash-panda-appnet
 
-  web:
+  trash-panda-web:
     image: ghcr.io/vladpaun/trash-panda-web:main
+    container_name: trash-panda-web
+    restart: unless-stopped
     networks:
       - edge
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.trashpanda-web.rule=Host(`${WEB_HOST}`)"
-      - "traefik.http.routers.trashpanda-web.entrypoints=websecure"
-      - "traefik.http.routers.trashpanda-web.tls.certresolver=${TRAEFIK_CERTRESOLVER}"
+      - "traefik.http.routers.trash-panda-web.rule=Host(`${WEB_HOST}`)"
+      - "traefik.http.routers.trash-panda-web.entrypoints=websecure"
+      - "traefik.http.routers.trash-panda-web.tls.certresolver=${TRAEFIK_CERTRESOLVER}"
 
-  db:
+  trash-panda-db:
     image: postgres:16-alpine
+    container_name: trash-panda-db
+    restart: unless-stopped
     env_file:
       - ../.env
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - trash-panda-pgdata:/var/lib/postgresql/data
     networks:
-      - appnet
+      - trash-panda-appnet
 
-  redis:
+  trash-panda-redis:
     image: redis:7-alpine
+    container_name: trash-panda-redis
+    restart: unless-stopped
     networks:
-      - appnet
+      - trash-panda-appnet
 
 volumes:
-  pgdata:
-  media:
-  whisper_models:
+  trash-panda-pgdata:
+  trash-panda-media:
+  trash-panda-whisper:
 
 networks:
-  appnet:
+  trash-panda-appnet:
+    driver: bridge
     internal: true
   edge:
     external: true
-    name: edge
