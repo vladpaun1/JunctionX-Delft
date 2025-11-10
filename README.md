@@ -19,6 +19,17 @@ docker compose up
 ```
 For a detailed Docker + local development workflow (including the hot-reloading frontend), see `docs/DEV_WORKFLOW.md`.
 
+## Development modes
+- `docker compose up` (or `docker compose -f docker-compose.dev.yml up`) starts the Django API on port 8000 and the Vite dev server on port 5173 with live reload. The compose file sets `DJANGO_SETTINGS_MODULE=core.settings.dev`.
+- Local Python workflow stays the same: create a venv, `pip install -r requirements/dev.txt`, run `python backend/manage.py migrate`, etc.
+- The default Django settings module now points to `core.settings.dev`. For production builds (Gunicorn, collectstatic, etc.) set `DJANGO_SETTINGS_MODULE=core.settings.prod` or export it in your shell before invoking management commands.
+
+## Container build layout
+- `backend/Dockerfile.prod` builds a slim Gunicorn image (python:3.12-slim + ffmpeg) and mounts `/app/media` + `/models` for uploads and Whisper caches.
+- `frontend/Dockerfile.prod` is a Node 20 → nginx multi-stage build that ships the static Vite bundle with SPA fallbacks (`frontend/nginx.conf`).
+- `deploy/docker-compose.yml` is the production stack you can copy to the Traefik host. It expects images like `ghcr.io/vladpaun/trash-panda-api:main`, joins the shared `edge` network, mounts `media`/`whisper_models`, and wires Traefik routers + buffering middleware for large uploads. Replace the `ghcr.io/vladpaun/...` tags with whatever you publish from CI.
+- Use `.env.example` as the template for secrets (database creds, allowed hosts, TLS resolver, etc.); mount the real `.env` when running compose both locally and in prod.
+
 ## other actions
 make sure you have all the python dev tools and are in your venv:
 ```bash

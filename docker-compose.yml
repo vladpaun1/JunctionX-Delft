@@ -1,31 +1,10 @@
 services:
   web:
-    build:
-      context: .
-      args:
-        REQUIREMENTS_FILE: requirements/dev.txt
-    working_dir: /app
-    command: >
-      sh -c "python backend/manage.py migrate &&
-             python backend/manage.py runserver 0.0.0.0:8000"
-    ports:
-      - "8000:8000"
-    volumes:
-      - .:/app
-    environment:
-      - PYTHONUNBUFFERED=1
+    extends:
+      file: docker-compose.dev.yml
+      service: web
 
   frontend:
-    build:
-      context: .
-      dockerfile: frontend.Dockerfile
-    working_dir: /app/frontend
-    depends_on:
-      - web
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-      - NODE_ENV=development
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app/frontend
+    extends:
+      file: docker-compose.dev.yml
+      service: frontend

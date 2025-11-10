@@ -5,4 +5,7 @@ __pycache__/
 .venv/
 .git/
 .env
-
+datasets/
+frontend/node_modules/
+backend/media/
+backend/staticfiles/
