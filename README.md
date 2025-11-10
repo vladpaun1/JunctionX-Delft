@@ -47,6 +47,12 @@ python -m backend.services.label.training.lr_train \
   --out backend/services/label/model/artifacts
 ```
 
+## demo upload guardrails
+- Anonymous visitors get a Django session as soon as they interact with the API; that `session_key` (or the authenticated user id) is stored on every `UploadJob`, so each browser session only sees its own uploads.
+- Each session/user can own at most 10 uploads (override with `MAX_UPLOADS_PER_PRINCIPAL` in `.env`). Once the cap is reached, the API returns an informative error until old jobs are deleted.
+- Old uploads can be cleared with `python backend/manage.py cleanup_uploads`, which removes both the database rows and the files under `media/`. Configure this command in a nightly cron/Cloud scheduler; change the retention window via `UPLOAD_RETENTION_HOURS` or pass `--hours`.
+- Run `python backend/manage.py cleanup_uploads --dry-run` to see how many jobs would be purged before wiring up the scheduled task.
+
 # Bibliography
 
 cjadams, Jeffrey Sorensen, Julia Elliott, Lucas Dixon, Mark McDonald, nithum, & Will Cukierski. (2017). Toxic Comment Classification Challenge. .

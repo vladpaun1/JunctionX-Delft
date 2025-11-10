@@ -135,9 +135,28 @@ class UploadJobViewSet(
             return Response({"detail": "No files provided.", "code": "no_files"}, status=400)
 
         owner_kwargs = principal_filter(request)  # ensures session_key for anonymous
+        max_uploads = getattr(settings, "MAX_UPLOADS_PER_PRINCIPAL", 10)
+        existing_count = UploadJob.objects.filter(**owner_kwargs).count()
+        if existing_count >= max_uploads:
+            return Response(
+                {
+                    "detail": f"Upload limit reached ({max_uploads} per session). Delete older jobs to continue.",
+                    "code": "upload_limit_reached",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         jobs_resp = []
+        created_now = 0
 
         for f in files:
+            if existing_count + created_now >= max_uploads:
+                jobs_resp.append({
+                    "filename": f.name,
+                    "error": f"Upload limit reached ({max_uploads} per session).",
+                })
+                continue
+
             try:
                 src = save_upload(f)  # returns absolute path under MEDIA_ROOT/uploads/...
             except ValueError as e:
@@ -154,6 +173,7 @@ class UploadJobViewSet(
                 status=UploadJob.Status.PENDING,
                 **owner_kwargs,
             )
+            created_now += 1
 
             threading.Thread(target=_run_job_in_bg, args=(job.id,), daemon=True).start()
 

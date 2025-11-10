@@ -190,6 +190,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LABEL_MODEL_DIR = BASE_DIR / "services" / "label" / "model" / "artifacts"
 
+MAX_UPLOADS_PER_PRINCIPAL = int(os.getenv("MAX_UPLOADS_PER_PRINCIPAL", "10"))
+UPLOAD_RETENTION_HOURS = int(os.getenv("UPLOAD_RETENTION_HOURS", "24"))
 
 RAW_VOSK = os.environ.get("VOSK_MODEL_DIR", "").strip()
 
