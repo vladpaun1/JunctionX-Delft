@@ -1,5 +1,7 @@
 FROM python:3.12-slim
 
+ARG REQUIREMENTS_FILE=requirements/base.txt
+
 WORKDIR /app
 
 # Install system deps first
@@ -9,10 +11,9 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy only the requirements first
-COPY requirements/base.txt requirements.txt
-
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy and install Python dependencies (dev/prod selectable via build arg)
+COPY requirements ./requirements
+RUN pip install --no-cache-dir -r ${REQUIREMENTS_FILE}
 
 # Now copy the rest of the app
 COPY . .

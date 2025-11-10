@@ -17,6 +17,7 @@ then every time you want to run the server:
 ```bash
 docker compose up
 ```
+For a detailed Docker + local development workflow (including the hot-reloading frontend), see `docs/DEV_WORKFLOW.md`.
 
 ## other actions
 make sure you have all the python dev tools and are in your venv:
