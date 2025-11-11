@@ -11,3 +11,4 @@ python-dotenv>=1.1.1
 alt_profanity_check>=1
 pandas>=2.3
 joblib==1.5.2
+psycopg2-binary>=2.9

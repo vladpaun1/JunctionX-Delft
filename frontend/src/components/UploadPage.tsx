@@ -4,11 +4,14 @@ import ThemeToggle from './ThemeToggle'
 import JobsTable from './JobsTable'
 import JobModal from './JobModal'
 import ToastArea from './Toasts'
+import DemoModal from './DemoModal'
 import { useToasts } from '../hooks/useToasts'
 import type { JobListItem, JobDetail, JobDataPayload } from '../lib/types'
 import { listJobs, bulkCreate, getJob, getJobData, resetSession } from '../lib/api'
 import { copyToClipboard, pretty, isoStamp, downloadBlob } from '../lib/utils'
 import { cache } from '../lib/cache'
+
+const DEMO_MODAL_KEY = 'tp.demoAck';
 
 export default function UploadPage() {
   const { toasts, push, remove } = useToasts()
@@ -18,11 +21,18 @@ export default function UploadPage() {
   const [jobs, setJobs] = useState<JobListItem[]>([])
   const [modalMeta, setModalMeta] = useState<JobDetail|null>(null)
   const [modalData, setModalData] = useState<JobDataPayload|null>(null)
+  const [showDemoModal, setShowDemoModal] = useState(false)
 
   const refreshRow = (id: string, patch: Partial<JobListItem>) => {
     setJobs(cur => cur.map(j => j.id === id ? { ...j, ...patch } : j))
   }
   const removeRow = (id: string) => setJobs(prev => prev.filter(j => j.id !== id))
+
+  useEffect(() => {
+    if (!sessionStorage.getItem(DEMO_MODAL_KEY)) {
+      setShowDemoModal(true)
+    }
+  }, [])
 
   useEffect(() => {
     (async () => {
@@ -35,6 +45,11 @@ export default function UploadPage() {
       }
     })()
   }, [push])
+
+  const acknowledgeDemo = () => {
+    sessionStorage.setItem(DEMO_MODAL_KEY, '1')
+    setShowDemoModal(false)
+  }
 
   const onClear = () => {
     setFiles([])
@@ -85,6 +100,8 @@ export default function UploadPage() {
       setFiles([])
       const el = document.getElementById('files') as HTMLInputElement | null
       if (el) el.value = ''
+      sessionStorage.removeItem(DEMO_MODAL_KEY)
+      setShowDemoModal(true)
       push({ msg: 'Session reset.', kind: 'info', ms: 2500 })
     } catch (e: any) {
       push({ msg: e?.message || 'Failed to reset session', kind: 'danger' })
@@ -180,6 +197,7 @@ export default function UploadPage() {
       {modalMeta && (
         <JobModal meta={modalMeta} data={modalData} onClose={() => { setModalMeta(null); setModalData(null) }} />
       )}
+      <DemoModal show={showDemoModal} onClose={acknowledgeDemo} />
     </div>
   )
 }

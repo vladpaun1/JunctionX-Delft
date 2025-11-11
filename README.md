@@ -19,6 +19,17 @@ docker compose up
 ```
 For a detailed Docker + local development workflow (including the hot-reloading frontend), see `docs/DEV_WORKFLOW.md`.
 
+## Development modes
+- `docker compose up` (or `docker compose -f docker-compose.dev.yml up`) starts the Django API on port 8000 and the Vite dev server on port 5173 with live reload. The compose file sets `DJANGO_SETTINGS_MODULE=core.settings.dev`.
+- Local Python workflow stays the same: create a venv, `pip install -r requirements/dev.txt`, run `python backend/manage.py migrate`, etc.
+- The default Django settings module now points to `core.settings.dev`. For production builds (Gunicorn, collectstatic, etc.) set `DJANGO_SETTINGS_MODULE=core.settings.prod` or export it in your shell before invoking management commands.
+
+## Container build layout
+- `backend/Dockerfile.prod` builds a slim Gunicorn image (python:3.12-slim + ffmpeg) and mounts `/app/media` + `/models` for uploads and Whisper caches.
+- `frontend/Dockerfile.prod` is a Node 20 → nginx multi-stage build that ships the static Vite bundle with SPA fallbacks (`frontend/nginx.conf`).
+- `deploy/docker-compose.yml` is the production stack you can copy to the Traefik host. It expects images like `ghcr.io/vladpaun/trash-panda-api:main`, joins the shared `edge` network, mounts `media`/`whisper_models`, and wires Traefik routers + buffering middleware for large uploads. Replace the `ghcr.io/vladpaun/...` tags with whatever you publish from CI.
+- Use `.env.example` as the template for secrets (database creds, allowed hosts, TLS resolver, etc.); mount the real `.env` when running compose both locally and in prod.
+
 ## other actions
 make sure you have all the python dev tools and are in your venv:
 ```bash
@@ -46,6 +57,12 @@ python -m backend.services.label.training.lr_train \
   --data datasets/final/unified_dataset.csv \
   --out backend/services/label/model/artifacts
 ```
+
+## demo upload guardrails
+- Anonymous visitors get a Django session as soon as they interact with the API; that `session_key` (or the authenticated user id) is stored on every `UploadJob`, so each browser session only sees its own uploads.
+- Each session/user can own at most 10 uploads (override with `MAX_UPLOADS_PER_PRINCIPAL` in `.env`). Once the cap is reached, the API returns an informative error until old jobs are deleted.
+- Old uploads can be cleared with `python backend/manage.py cleanup_uploads`, which removes both the database rows and the files under `media/`. Configure this command in a nightly cron/Cloud scheduler; change the retention window via `UPLOAD_RETENTION_HOURS` or pass `--hours`.
+- Run `python backend/manage.py cleanup_uploads --dry-run` to see how many jobs would be purged before wiring up the scheduled task.
 
 # Bibliography
 
