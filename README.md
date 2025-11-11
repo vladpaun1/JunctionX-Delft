@@ -1,77 +1,160 @@
-# The challenge
+# Trash Panda · Speech Hygiene Pipeline
 
-Speech and voice technology is increasingly used, e.g., in emergency response centers, domestic voice assistants, and search engines. Because of the paramount relevance spoken language plays in our lives, it is critical that speech technology systems are able to
-deal with the variability in the way people speak (e.g., due to speaker differences, demographics, different speaking styles, and differently abled users). A big issue is finding speech data to train the deep-learning-based speech systems: existing data is scarce. Potentially, freely available data could be used; however, these need to be carefully checked for extremist views as we should avoid using questionable data that could perpetuate bias and extremist views. We are excited to challenge you to create a system to automatically screen audio (and video) for extremist views as a key step to alleviating freely available speech data for the development of inclusive speech technology.
+[![Release](https://img.shields.io/badge/release-v0.1.0-blue.svg)](#releases) 
+[![Backend](https://img.shields.io/badge/Django-5.0-0C4B33?logo=django&logoColor=fff)](backend) 
+[![Frontend](https://img.shields.io/badge/Vite%2FReact-5.0-646CFF?logo=vite&logoColor=fff)](frontend) 
+[![ASR](https://img.shields.io/badge/ASR-Whisper-orange)](backend/services/asr) 
+[![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
 
-To use freely available speech data for training inclusive speech technology they need to be screened for extremist views and bad language to avoid potentially perpetuating these extremist views and bias into our systems. How can this be done? The actual challenge is not making (e.g., coding) the system, it is its design. You need to carefully define what constitutes “extreme views” or “bad language”, your definition needs to be made responsibly. Think of the implications your definition (and its implementation in the form of a system or solution you will provide) can have on society, think of the ethical, social and legal responsibilities it implies.
+Trash Panda is our hackathon-built platform for triaging open-source speech datasets before they reach inclusive voice-technology pipelines. Upload an audio/video batch, we normalize it, transcribe with Whisper, classify each span for hate/abuse, and return flagged transcripts—all behind anonymous browser sessions so strangers can safely demo the system.
 
-# Extreme Speech Filter — Backend
+---
 
-## Quick start
-- make sure docker and docker compose are installed
-to build the docker image:
+## ✨ Highlights
+
+- **Dual build targets**: Django REST API + Vite/React SPA, both shipped as immutable images on GHCR.
+- **Modern ASR**: Faster-Whisper handles transcription; no Vosk baggage required.
+- **Inline toxicity labeling**: Custom classifier + profanity fallback mark suspicious spans in-place.
+- **Session-scoped uploads**: Anonymous visitors get isolated queues, capped at 10 jobs, with automated cleanup hooks.
+- **Traefik-ready deployment**: Compose stack expects an `edge` network and Cloudflare DNS-01 certificates.
+
+---
+
+## 🧱 Stack Snapshot
+
+| Layer        | Tech                                                         |
+| ------------ | ------------------------------------------------------------ |
+| API          | Django 5 · DRF · Gunicorn · PostgreSQL (prod) / SQLite (dev) |
+| ASR + NLP    | Faster-Whisper · Custom sklearn classifiers + profanity check |
+| Frontend     | Vite · React 18 · Bootstrap 5 · custom Toast/Jobs UI         |
+| Storage      | Local media volume (`/app/media`) + Whisper cache volume (`/models`) |
+| Ops          | Docker · Traefik 2.11 · Cloudflare DNS-01 · GitHub Container Registry |
+
+---
+
+## 🗺️ Architecture
+
+1. **Upload** — Browser session POSTs `/api/jobs/bulk/` with files, receives job IDs immediately.
+2. **Pipeline** — Background thread normalizes audio (ffmpeg), runs Whisper, classifies spans, and stores artifacts under `media/`.
+3. **Review** — Frontend polls `/api/jobs/` for status, renders transcripts with inline bad-language chips, enables JSON export.
+4. **Isolation** — `UploadJob` rows record either `user_id` or session key; API permissions ensure visitors only see their session jobs.
+5. **Retention** — `cleanup_uploads` management command purges uploads + normalized audio + transcripts after `UPLOAD_RETENTION_HOURS`.
+
+---
+
+## 🧑‍💻 Local Development
+
+### Prerequisites
+
+- Docker + Docker Compose (for the default workflow)
+- Python 3.12 + Node 20 (optional if you want to run services outside Docker)
+
+### One-command dev stack
+
 ```bash
-docker compose up --build
+# hot-reload API on :8000 and Vite SPA on :5173
+docker compose up   # or docker compose -f docker-compose.dev.yml up
 ```
-then every time you want to run the server:
-```bash
-docker compose up
-```
-For a detailed Docker + local development workflow (including the hot-reloading frontend), see `docs/DEV_WORKFLOW.md`.
 
-## Development modes
-- `docker compose up` (or `docker compose -f docker-compose.dev.yml up`) starts the Django API on port 8000 and the Vite dev server on port 5173 with live reload. The compose file sets `DJANGO_SETTINGS_MODULE=core.settings.dev`.
-- Local Python workflow stays the same: create a venv, `pip install -r requirements/dev.txt`, run `python backend/manage.py migrate`, etc.
-- The default Django settings module now points to `core.settings.dev`. For production builds (Gunicorn, collectstatic, etc.) set `DJANGO_SETTINGS_MODULE=core.settings.prod` or export it in your shell before invoking management commands.
+The dev compose mounts your working copy, sets `DJANGO_SETTINGS_MODULE=core.settings.dev`, and leaves migrations to run manually inside the container or your local venv:
 
-## Container build layout
-- `backend/Dockerfile.prod` builds a slim Gunicorn image (python:3.12-slim + ffmpeg) and mounts `/app/media` + `/models` for uploads and Whisper caches.
-- `frontend/Dockerfile.prod` is a Node 20 → nginx multi-stage build that ships the static Vite bundle with SPA fallbacks (`frontend/nginx.conf`).
-- `deploy/docker-compose.yml` is the production stack you can copy to the Traefik host. It expects images like `ghcr.io/vladpaun/trash-panda-api:main`, joins the shared `edge` network, mounts `media`/`whisper_models`, and wires Traefik routers + buffering middleware for large uploads. Replace the `ghcr.io/vladpaun/...` tags with whatever you publish from CI.
-- Use `.env.example` as the template for secrets (database creds, allowed hosts, TLS resolver, etc.); mount the real `.env` when running compose both locally and in prod.
-
-## other actions
-make sure you have all the python dev tools and are in your venv:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements/dev.txt
-```
-to migrate the database:
-```bash
 python backend/manage.py migrate
 ```
-to get all the data in the unified dataset:
+
+---
+
+## 📦 Production Images
+
+| Image                         | Dockerfile                      | Entrypoint                                                     |
+| ----------------------------- | -------------------------------- | -------------------------------------------------------------- |
+| `ghcr.io/<org>/trash-panda-api` | `backend/Dockerfile.prod`        | `gunicorn core.wsgi:application -w 3 -b 0.0.0.0:8000`           |
+| `ghcr.io/<org>/trash-panda-web` | `frontend/Dockerfile.prod`       | `nginx -g "daemon off;"` (serves Vite build with SPA fallback) |
+
+Key build notes:
+- Backend image includes ffmpeg, Whisper runtime deps, `backend/services/label/model/artifacts/`, and exposes `/app/media` + `/models` as volumes.
+- Frontend image performs a Node build stage, then copies static files into nginx with cache-friendly headers for `/assets/`.
+- Publish with `docker build -f backend/Dockerfile.prod ...` and push to GHCR; the production compose only pulls images.
+
+---
+
+## 🚀 Deploying with Traefik
+
+In your infra repo (e.g., `/srv/docker/stacks/trash-panda`):
+
+1. Copy the production `docker-compose.yml` (Traefik-friendly labels, Postgres volume, media/Whisper mounts).
+2. Drop a real `.env` alongside it. Required keys:
+   ```dotenv
+   WEB_HOST=trashpanda.vladpaun.com
+   DJANGO_ALLOWED_HOSTS=trashpanda.vladpaun.com
+   CSRF_TRUSTED_ORIGINS=https://trashpanda.vladpaun.com
+   DB_*  # Postgres creds
+   POSTGRES_*  # same creds for the container
+   TRAEFIK_CERTRESOLVER=cf
+   ```
+3. Authenticate the server to GHCR (`docker login ghcr.io -u <user> -p <PAT>`).
+4. Deploy:
+   ```bash
+   docker compose pull
+   docker compose up -d
+   ```
+
+Traefik should already expose an `edge` network. The API service joins both `trash-panda-appnet` (internal) and `edge`, letting Traefik route `https://trashpanda.vladpaun.com/api/*` straight to Gunicorn without path stripping.
+
+### Applying migrations on deploy
+
+Add a migration step before Gunicorn in your production compose (or run it manually):
+
+```yaml
+command: >
+  sh -c "python backend/manage.py migrate --noinput &&
+         gunicorn core.wsgi:application -w 3 -b 0.0.0.0:8000"
+```
+
+---
+
+## 🔐 Demo Guardrails & Maintenance
+
+- **Per-session quotas:** `MAX_UPLOADS_PER_PRINCIPAL` (default 10) caps queued jobs for anonymous visitors; exceeding it returns an informative 400 error until old jobs are deleted.
+- **Nightly cleanup:** `python backend/manage.py cleanup_uploads --hours 24` removes stale uploads, normalized WAVs, and transcripts; schedule this via cron or a managed task runner.
+- **Session reset API:** `/api/reset-session/` clears the anonymous session and re-triggers the onboarding modal, useful for demos.
+- **Traefik buffering (optional):** enable the commented middleware in the compose file to allow larger uploads without overwhelming Gunicorn workers.
+
+---
+
+## 🗃️ Training Artifacts
+
+Training scripts live under `backend/services/label/training/`. To rebuild classifiers locally:
+
 ```bash
 python datasets/final_conversion.py
-```
-to train the models:
-```bash
 python -m backend.services.label.training.svm_train \
   --data datasets/final/unified_dataset.csv \
   --out backend/services/label/model/artifacts
-python -m backend.services.label.training.rf_train \
-  --data datasets/final/unified_dataset.csv \
-  --out backend/services/label/model/artifacts
-python -m backend.services.label.training.lr_train \
-  --data datasets/final/unified_dataset.csv \
-  --out backend/services/label/model/artifacts
+# repeat for rf_train / lr_train
 ```
 
-## demo upload guardrails
-- Anonymous visitors get a Django session as soon as they interact with the API; that `session_key` (or the authenticated user id) is stored on every `UploadJob`, so each browser session only sees its own uploads.
-- Each session/user can own at most 10 uploads (override with `MAX_UPLOADS_PER_PRINCIPAL` in `.env`). Once the cap is reached, the API returns an informative error until old jobs are deleted.
-- Old uploads can be cleared with `python backend/manage.py cleanup_uploads`, which removes both the database rows and the files under `media/`. Configure this command in a nightly cron/Cloud scheduler; change the retention window via `UPLOAD_RETENTION_HOURS` or pass `--hours`.
-- Run `python backend/manage.py cleanup_uploads --dry-run` to see how many jobs would be purged before wiring up the scheduled task.
+Those artifacts are already checked in so the production image can load them without running the training pipeline.
 
-# Bibliography
+---
 
-cjadams, Jeffrey Sorensen, Julia Elliott, Lucas Dixon, Mark McDonald, nithum, & Will Cukierski. (2017). Toxic Comment Classification Challenge. .
+## 🧾 Release Workflow
 
-Costa-jussà, M., Meglioli, M., Andrews, P., Dale, D., Hansanti, P., Kalbassi, E., Mourachko, A., Ropers, C., & Wood, C. (2024). MuTox: Universal MUltilingual Audio-based TOXicity Dataset and Zero-shot Detector. In L.-W. Ku, A. Martins, & V. Srikumar (Eds.), Findings of the Association for Computational Linguistics: ACL 2024 (pp. 5725–5734). Association for Computational Linguistics. https://doi.org/10.18653/v1/2024.findings-acl.34
+1. Update docs/README/compose as needed.
+2. Commit and push to `main`.
+3. Tag a release (`git tag v0.x.y && git push --tags`) or use GitHub’s “Draft a new release” pointing to that commit.
+4. Build & push the backend/frontend images for that tag.
 
-Davidson, T., Warmsley, D., Macy, M., & Weber, I. (2017). Automated Hate Speech Detection and the Problem of Offensive Language. In Proceedings of the 11th International AAAI Conference on Web and Social Media (pp. 512-515).
 
-Gibert, O., Perez, N., Garc\ia-Pablos, A., & Cuadros, M. (2018). Hate Speech Dataset from a White Supremacy Forum. In Proceedings of the 2nd Workshop on Abusive Language Online (ALW2) (pp. 11–20). Association for Computational Linguistics.
+---
 
-Kennedy, B., Atari, M., Davani, A. M., Yeh, L., Omrani, A., Kim, Y., Coombs, K., Havaldar, S., Portillo-Wightman, G., Gonzalez, E., Hoover, J., Azatian, A., Hussain, A., Lara, A., Cardenas, G., Omary, A., Park, C., Wang, X., Wijaya, C., Zhang, Y., Meyerowitz, B., & Dehghani, M. (2022). Introducing the Gab Hate Corpus: defining and applying hate-based rhetoric to social media posts at scale. Language Resources and Evaluation, 56(1), 79–108. https://doi.org/10.1007/s10579-021-09569-x
+## 📚 Bibliography
+
+- Cjadams et al., *Toxic Comment Classification Challenge*, Kaggle, 2017.  
+- Costa-jussà et al., *MuTox: Universal Multilingual Audio-based Toxicity Dataset*, ACL Findings 2024.  
+- Davidson et al., *Automated Hate Speech Detection and the Problem of Offensive Language*, ICWSM 2017.  
+- Gibert et al., *Hate Speech Dataset from a White Supremacy Forum*, ALW2 2018.  
+- Kennedy et al., *Introducing the Gab Hate Corpus*, LRE 2022.
